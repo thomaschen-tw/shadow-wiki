@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 from scripts.config import get_settings
 
@@ -36,12 +37,20 @@ CREATE VIRTUAL TABLE IF NOT EXISTS wiki_fts USING fts5(
 """
 
 
-def get_connection() -> sqlite3.Connection:
+@contextmanager
+def get_connection():
     db_path = Path(get_settings().db_path)
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
-    return conn
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def init_db() -> None:
@@ -61,7 +70,7 @@ def push_event(source: str, event_type: str, raw_json: str) -> int:
 def get_pending_events(limit: int = 10) -> list[sqlite3.Row]:
     with get_connection() as conn:
         return conn.execute(
-            "SELECT * FROM events WHERE status='pending' ORDER BY created_at LIMIT ?",
+            "SELECT * FROM events WHERE status='pending' ORDER BY created_at, id LIMIT ?",
             (limit,),
         ).fetchall()
 
@@ -115,17 +124,22 @@ def update_fts(module_path: str, content: str) -> None:
 
 
 def search_modules_fts(query: str, limit: int = 5) -> list[sqlite3.Row]:
-    with get_connection() as conn:
-        return conn.execute(
-            """
-            SELECT module_path,
-                   snippet(wiki_fts, 1, '<b>', '</b>', '...', 32) AS snippet
-            FROM wiki_fts
-            WHERE content MATCH ?
-            LIMIT ?
-            """,
-            (query, limit),
-        ).fetchall()
+    # Escape FTS5 special chars by treating the whole query as a phrase
+    escaped = '"' + query.replace('"', '""') + '"'
+    try:
+        with get_connection() as conn:
+            return conn.execute(
+                """
+                SELECT module_path,
+                       snippet(wiki_fts, 1, '<b>', '</b>', '...', 32) AS snippet
+                FROM wiki_fts
+                WHERE content MATCH ?
+                LIMIT ?
+                """,
+                (escaped, limit),
+            ).fetchall()
+    except sqlite3.OperationalError:
+        return []
 
 
 def get_pipeline_status() -> dict:

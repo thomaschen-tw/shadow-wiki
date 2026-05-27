@@ -1,6 +1,5 @@
 import json
 import pytest
-from tests.conftest import *  # noqa: F401, F403
 
 
 def test_init_creates_tables(tmp_db):
