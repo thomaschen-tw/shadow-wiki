@@ -138,10 +138,11 @@ def search_modules_fts(query: str, limit: int = 5) -> list[sqlite3.Row]:
             rows = conn.execute(_SQL, (escaped, limit)).fetchall()
             if rows:
                 return rows
-            # Fall back to OR query across individual tokens
+            # Fall back to OR query across individually-escaped tokens
             tokens = query.split()
             if len(tokens) > 1:
-                or_query = " OR ".join(tokens)
+                escaped_tokens = ['"' + t.replace('"', '""') + '"' for t in tokens]
+                or_query = " OR ".join(escaped_tokens)
                 rows = conn.execute(_SQL, (or_query, limit)).fetchall()
             return rows
     except sqlite3.OperationalError:
