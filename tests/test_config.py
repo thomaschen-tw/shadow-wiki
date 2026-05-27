@@ -1,5 +1,6 @@
 import os
 import pytest
+from pydantic import ValidationError
 
 
 def test_default_local_backend():
@@ -50,3 +51,17 @@ def test_get_settings_reset(monkeypatch):
     cfg._settings = None
     s2 = cfg.get_settings()
     assert s1 is not s2
+
+
+def test_invalid_local_backend_raises(monkeypatch):
+    monkeypatch.setenv("LOCAL_LLM_BACKEND", "invalid_backend")
+    from scripts.config import Settings
+    with pytest.raises(ValidationError):
+        Settings()
+
+
+def test_invalid_cloud_backend_raises(monkeypatch):
+    monkeypatch.setenv("CLOUD_LLM_BACKEND", "gpt4")
+    from scripts.config import Settings
+    with pytest.raises(ValidationError):
+        Settings()
