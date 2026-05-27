@@ -7,3 +7,7 @@ __pycache__/
 *.egg-info/
 dist/
 .DS_Store
+# Obsidian workspace state (personal, not project config)
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+# wiki/ contains LLM-generated output — committed intentionally as living docs
