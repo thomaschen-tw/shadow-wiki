@@ -1,3 +1,4 @@
+import copy
 from datetime import datetime
 from pathlib import Path
 import frontmatter
@@ -42,7 +43,7 @@ def create_module(module_path: str, body: str, summary: str | None = None) -> No
     post = frontmatter.Post(
         body,
         **{
-            **_DEFAULT_METADATA,
+            **copy.deepcopy(_DEFAULT_METADATA),
             "module": module_path,
             "last_updated": datetime.now().strftime("%Y-%m-%d"),
         },
@@ -72,10 +73,8 @@ def append_to_section(
         entry += f" ({pr_number})"
     entry += f"\n\n{content}\n"
 
-    if next_section == -1:
-        body = body[:insert_at] + entry + body[insert_at:]
-    else:
-        body = body[:next_section] + entry + body[next_section:]
+    # Always insert right after the section header (newest entry first / top-prepend)
+    body = body[:insert_at] + entry + body[insert_at:]
 
     post.content = body
     post["last_updated"] = datetime.now().strftime("%Y-%m-%d")
