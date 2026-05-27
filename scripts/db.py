@@ -126,18 +126,24 @@ def update_fts(module_path: str, content: str) -> None:
 def search_modules_fts(query: str, limit: int = 5) -> list[sqlite3.Row]:
     # Escape FTS5 special chars by treating the whole query as a phrase
     escaped = '"' + query.replace('"', '""') + '"'
-    try:
-        with get_connection() as conn:
-            return conn.execute(
-                """
+    _SQL = """
                 SELECT module_path,
                        snippet(wiki_fts, 1, '<b>', '</b>', '...', 32) AS snippet
                 FROM wiki_fts
                 WHERE content MATCH ?
                 LIMIT ?
-                """,
-                (escaped, limit),
-            ).fetchall()
+                """
+    try:
+        with get_connection() as conn:
+            rows = conn.execute(_SQL, (escaped, limit)).fetchall()
+            if rows:
+                return rows
+            # Fall back to OR query across individual tokens
+            tokens = query.split()
+            if len(tokens) > 1:
+                or_query = " OR ".join(tokens)
+                rows = conn.execute(_SQL, (or_query, limit)).fetchall()
+            return rows
     except sqlite3.OperationalError:
         return []
 
