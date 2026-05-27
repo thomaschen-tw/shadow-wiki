@@ -1,4 +1,5 @@
 from enum import Enum
+import functools
 import openai
 import anthropic
 from scripts.config import get_settings, LocalBackend, CloudBackend
@@ -16,10 +17,20 @@ class TaskType(Enum):
 _LOCAL_TASKS = {TaskType.CLASSIFY, TaskType.SUMMARIZE, TaskType.APPEND, TaskType.QUERY}
 
 
+@functools.lru_cache(maxsize=8)
+def _openai_client(base_url: str, api_key: str) -> openai.OpenAI:
+    return openai.OpenAI(base_url=base_url, api_key=api_key or "not-needed")
+
+
+@functools.lru_cache(maxsize=1)
+def _anthropic_client() -> anthropic.Anthropic:
+    return anthropic.Anthropic(api_key=get_settings().anthropic_api_key)
+
+
 def _call_openai_compatible(
     base_url: str, api_key: str, model: str, prompt: str, system: str
 ) -> str:
-    client = openai.OpenAI(base_url=base_url, api_key=api_key or "not-needed")
+    client = _openai_client(base_url, api_key or "")
     response = client.chat.completions.create(
         model=model,
         messages=[
@@ -27,19 +38,28 @@ def _call_openai_compatible(
             {"role": "user", "content": prompt},
         ],
     )
-    return response.choices[0].message.content
+    if not response.choices:
+        raise ValueError(f"LLM returned no choices (model={model})")
+    content = response.choices[0].message.content
+    if content is None:
+        raise ValueError(f"LLM returned null content (model={model})")
+    return content
 
 
 def _call_claude(prompt: str, system: str) -> str:
-    s = get_settings()
-    client = anthropic.Anthropic(api_key=s.anthropic_api_key)
+    client = _anthropic_client()
     response = client.messages.create(
-        model=s.claude_model,
+        model=get_settings().claude_model,
         max_tokens=4096,
         system=system,
         messages=[{"role": "user", "content": prompt}],
     )
-    return response.content[0].text
+    if not response.content:
+        raise ValueError("Claude returned no content blocks")
+    text = response.content[0].text
+    if text is None:
+        raise ValueError("Claude returned null text")
+    return text
 
 
 def _call_local(prompt: str, system: str) -> str:

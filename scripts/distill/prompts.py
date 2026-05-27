@@ -64,4 +64,4 @@ def synthesize_prompt(module_path: str, recent_events: list[str]) -> str:
 
 
 def query_expand_prompt(user_query: str) -> str:
-    return f"Expand for technical wiki search: {user_query}"
+    return f"Expand for technical wiki search: {user_query[:500]}"

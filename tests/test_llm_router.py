@@ -40,10 +40,12 @@ def test_create_page_routes_to_cloud(monkeypatch):
 
 
 def test_call_openai_compatible_uses_correct_model(monkeypatch):
+    mock_client = MagicMock()
     mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
     mock_response.choices[0].message.content = "hello"
-    with patch("openai.OpenAI") as MockClient:
-        MockClient.return_value.chat.completions.create.return_value = mock_response
+    mock_client.chat.completions.create.return_value = mock_response
+    with patch("scripts.distill.llm_router._openai_client", return_value=mock_client) as mock_factory:
         from scripts.distill.llm_router import _call_openai_compatible
         result = _call_openai_compatible(
             base_url="http://localhost:1234/v1",
@@ -53,7 +55,7 @@ def test_call_openai_compatible_uses_correct_model(monkeypatch):
             system="sys",
         )
     assert result == "hello"
-    call_kwargs = MockClient.return_value.chat.completions.create.call_args
+    call_kwargs = mock_client.chat.completions.create.call_args
     assert call_kwargs.kwargs["model"] == "qwen3-35b"
 
 
