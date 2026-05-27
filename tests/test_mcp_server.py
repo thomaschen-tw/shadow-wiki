@@ -68,3 +68,25 @@ def test_update_module_appends_section(tmp_db):
     assert result["status"] == "ok"
     post = read_module("api/users")
     assert "Rate limiting" in post.content
+
+
+def test_get_recent_changes_returns_done_events(tmp_db):
+    from scripts.db import init_db, push_event, mark_event_done
+    init_db()
+    eid = push_event("github", "pr", '{"title": "Fix session bug"}')
+    mark_event_done(eid)
+
+    from scripts.mcp_server import get_recent_changes
+    results = get_recent_changes("1d")
+    assert len(results) == 1
+    assert results[0]["source"] == "github"
+    assert results[0]["title"] == "Fix session bug"
+
+
+def test_get_recent_changes_invalid_format(tmp_db):
+    from scripts.db import init_db
+    init_db()
+    from scripts.mcp_server import get_recent_changes
+    results = get_recent_changes("bad-format")
+    assert len(results) == 1
+    assert "error" in results[0]
