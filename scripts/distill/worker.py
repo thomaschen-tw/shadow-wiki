@@ -80,6 +80,7 @@ def run_worker(poll_interval: int = 30) -> None:
         if events:
             logger.info("Processing %d events", len(events))
             for event in events:
+                # TODO: make claim atomic (UPDATE WHERE status='pending') before scaling to multiple workers
                 mark_event_processing(event["id"])
                 process_event(event)
         time.sleep(poll_interval)
