@@ -1,5 +1,7 @@
 # Shadow Wiki
 
+> Full SOP (setup, connectors, MCP integration, troubleshooting): **[docs/SOP.md](docs/SOP.md)**
+
 A self-updating technical wiki that ingests GitHub PRs, Slack messages, Linear tickets, and local files — distilling them via a hybrid local/cloud LLM pipeline into an Obsidian vault exposed as an MCP server.
 
 ## Quick Start
