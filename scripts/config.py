@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class LocalBackend(str, Enum):
+    AUTO = "auto"
     LMSTUDIO = "lmstudio"
     OLLAMA = "ollama"
 
@@ -17,7 +18,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # LLM routing
-    local_llm_backend: LocalBackend = LocalBackend.LMSTUDIO
+    local_llm_backend: LocalBackend = LocalBackend.AUTO
     cloud_llm_backend: CloudBackend = CloudBackend.CLAUDE
 
     # LM Studio

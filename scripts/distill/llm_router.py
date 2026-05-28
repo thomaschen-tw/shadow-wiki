@@ -1,8 +1,12 @@
 from enum import Enum
 import functools
+import logging
 import openai
 import anthropic
+import httpx
 from scripts.config import get_settings, LocalBackend, CloudBackend
+
+logger = logging.getLogger(__name__)
 
 
 class TaskType(Enum):
@@ -62,9 +66,30 @@ def _call_claude(prompt: str, system: str) -> str:
     return text
 
 
+@functools.lru_cache(maxsize=1)
+def _detect_local_backend() -> LocalBackend:
+    s = get_settings()
+    candidates = [
+        (LocalBackend.LMSTUDIO, s.lmstudio_base_url),
+        (LocalBackend.OLLAMA, s.ollama_base_url),
+    ]
+    for backend, base_url in candidates:
+        try:
+            httpx.get(f"{base_url}/models", timeout=2.0)
+            logger.info("Auto-detected local LLM backend: %s (%s)", backend.value, base_url)
+            return backend
+        except Exception:
+            continue
+    raise RuntimeError(
+        "No local LLM reachable. Start LM Studio or Ollama, "
+        "or set LOCAL_LLM_BACKEND=lmstudio|ollama explicitly in .env."
+    )
+
+
 def _call_local(prompt: str, system: str) -> str:
     s = get_settings()
-    if s.local_llm_backend == LocalBackend.LMSTUDIO:
+    backend = _detect_local_backend() if s.local_llm_backend == LocalBackend.AUTO else s.local_llm_backend
+    if backend == LocalBackend.LMSTUDIO:
         return _call_openai_compatible(
             base_url=s.lmstudio_base_url, api_key="", model=s.lmstudio_model,
             prompt=prompt, system=system,

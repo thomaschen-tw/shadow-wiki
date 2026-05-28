@@ -7,11 +7,12 @@ A self-updating technical wiki that ingests GitHub PRs, Slack messages, Linear t
 ## Quick Start
 
 ```bash
+uv sync                                      # creates .venv with Python 3.12
 cp .env.example .env        # fill in your tokens
-python scripts/resource_mgr.py init
-python scripts/distill/worker.py &           # distillation worker (daemon)
-python scripts/ingest/github_connector.py &  # GitHub webhook on :9000
-python scripts/mcp_server.py                 # MCP server (stdio, for Claude Code)
+uv run python scripts/resource_mgr.py init
+uv run python scripts/distill/worker.py &           # distillation worker (daemon)
+uv run python scripts/ingest/github_connector.py &  # GitHub webhook on :9000
+uv run python scripts/mcp_server.py                 # MCP server (stdio, for Claude Code)
 ```
 
 ## Architecture
@@ -47,9 +48,11 @@ python scripts/mcp_server.py                 # MCP server (stdio, for Claude Cod
 Edit `.env` only — zero code changes:
 
 ```env
-LOCAL_LLM_BACKEND=ollama       # lmstudio (default) | ollama
+LOCAL_LLM_BACKEND=auto         # auto (default) | lmstudio | ollama
 CLOUD_LLM_BACKEND=deepseek     # claude (default) | qwen_cloud | deepseek
 ```
+
+`auto` probes LM Studio (`localhost:1234`) first, then Ollama (`localhost:11434`).
 
 ## Claude Code MCP Config
 
@@ -71,20 +74,20 @@ Then in Claude Code: `search_wiki("your query")` or `get_module("auth/session")`
 ## Running Tests
 
 ```bash
-pytest -v
+uv run pytest -v
 ```
 
 ## Manual End-to-End Test
 
 ```bash
 # 1. Init DB
-python scripts/resource_mgr.py init
+uv run python scripts/resource_mgr.py init
 
 # 2. Push a test diff
-echo "+def login(): pass" | python scripts/ingest_diff.py --diff - --pr 1 --title "Add login"
+echo "+def login(): pass" | uv run python scripts/ingest_diff.py --diff - --pr 1 --title "Add login"
 
 # 3. Run worker once (calls your configured LLM)
-python -c "
+uv run python -c "
 from scripts.db import init_db, get_pending_events
 from scripts.distill.worker import process_event
 init_db()
@@ -92,5 +95,5 @@ for e in get_pending_events(): process_event(e)
 "
 
 # 4. Check results
-python scripts/resource_mgr.py list
+uv run python scripts/resource_mgr.py list
 ```

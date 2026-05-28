@@ -12,8 +12,7 @@ Shadow Wiki watches your GitHub PRs, Slack, Linear, and local files, then uses a
 
 ```bash
 git clone <repo-url> shadow-wiki && cd shadow-wiki
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+uv sync          # creates .venv with Python 3.12 and installs all deps
 ```
 
 ## 2. Configure
@@ -33,25 +32,25 @@ CLOUD_LLM_BACKEND=claude     # create new wiki pages
 ## 3. Initialize
 
 ```bash
-python scripts/resource_mgr.py init
+uv run python scripts/resource_mgr.py init
 ```
 
 ## 4. Start Services
 
 ```bash
-python scripts/distill/worker.py &           # distillation worker
-python scripts/ingest/github_connector.py &  # GitHub webhook on :9000 (if using GitHub)
-python scripts/mcp_server.py                 # MCP server (keep in foreground or run via Claude Code)
+uv run python scripts/distill/worker.py &           # distillation worker
+uv run python scripts/ingest/github_connector.py &  # GitHub webhook on :9000 (if using GitHub)
+uv run python scripts/mcp_server.py                 # MCP server (keep in foreground or run via Claude Code)
 ```
 
 ## 5. Push Your First Entry
 
 ```bash
-echo "+def login(user, pw): ..." | python scripts/ingest_diff.py \
+echo "+def login(user, pw): ..." | uv run python scripts/ingest_diff.py \
   --diff - --pr 1 --title "Add login"
 
 # The worker processes it; check results:
-python scripts/resource_mgr.py list
+uv run python scripts/resource_mgr.py list
 ```
 
 ## 6. Connect Claude Code
