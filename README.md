@@ -145,14 +145,16 @@ uv run python scripts/resource_mgr.py compile    # load model + resume Docker
 
 ### Data Sources
 
-| Source | Variable(s) | Setup |
+| Source | Method | Setup required |
 |---|---|---|
-| GitHub | `GITHUB_TOKEN`, `GITHUB_WEBHOOK_SECRET` | [docs/github-setup.md](docs/github-setup.md) |
-| Slack | `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`, `SLACK_CHANNELS` | Enable Socket Mode in Slack app settings |
-| Linear | `LINEAR_API_KEY` | Settings → API → Personal keys |
-| Local files | `LOCAL_SCAN_PATHS`, `LOCAL_SCAN_EXTENSIONS` | No external setup |
+| GitHub (recommended) | **`github_poller.py`** — polls API on demand, no webhook | Set `GITHUB_TOKEN` + `GITHUB_REPO` in `.env` |
+| GitHub (realtime) | `github_connector.py` — FastAPI webhook server | Webhook registration + public URL / ngrok |
+| Slack | `slack_connector.py` — Socket Mode | Bot + App tokens, see Slack app settings |
+| Linear | `linear_connector.py` — GraphQL poll | `LINEAR_API_KEY` |
+| Local files | `local_scanner.py` — MD5 change detection | Set `LOCAL_SCAN_PATHS` in `.env` |
+| Manual | `ingest_diff.py` — CLI with AST validation | None |
 
-All data sources are **optional**. Shadow Wiki works with just manual diff ingestion.
+All data sources are **optional**. The poller is the easiest way to get started with a GitHub repo — no webhook or ngrok needed.
 
 ---
 
@@ -221,8 +223,9 @@ uv run pytest -v
 | Document | Contents |
 |---|---|
 | [docs/SOP.md](docs/SOP.md) | Full setup, configuration, operations, troubleshooting |
-| [docs/architecture.md](docs/architecture.md) | ASCII + Mermaid diagrams, data flow walkthrough |
-| [docs/github-setup.md](docs/github-setup.md) | GitHub token, webhook, ngrok for local dev |
+| [docs/workflow.md](docs/workflow.md) | Execution sequence diagram, what appears in `raw/` and `wiki/` |
+| [docs/architecture.md](docs/architecture.md) | ASCII + Mermaid component diagrams |
+| [docs/github-setup.md](docs/github-setup.md) | GitHub token, poller vs webhook, ngrok for realtime |
 
 ---
 
