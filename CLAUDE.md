@@ -1,55 +1,70 @@
 # Shadow Wiki
 
-> Full SOP (setup, connectors, MCP integration, troubleshooting): **[docs/SOP.md](docs/SOP.md)**
+> Full SOP: **[docs/SOP.md](docs/SOP.md)** · Architecture: **[docs/architecture.md](docs/architecture.md)** · GitHub setup: **[docs/github-setup.md](docs/github-setup.md)**
 
 A self-updating technical wiki that ingests GitHub PRs, Slack messages, Linear tickets, and local files — distilling them via a hybrid local/cloud LLM pipeline into an Obsidian vault exposed as an MCP server.
 
 ## Quick Start
 
 ```bash
-uv sync                                      # creates .venv with Python 3.12
-cp .env.example .env        # fill in your tokens
-uv run python scripts/resource_mgr.py init
+uv sync                                              # Python 3.12 venv + all deps
+cp .env.example .env                                 # fill in your tokens
+uv run python test_env.py                            # verify connectivity before starting
+uv run python scripts/resource_mgr.py init          # initialise SQLite database
 uv run python scripts/distill/worker.py &           # distillation worker (daemon)
-uv run python scripts/ingest/github_connector.py &  # GitHub webhook on :9000
+uv run python scripts/ingest/github_connector.py &  # GitHub webhook on :9000 (optional)
 uv run python scripts/mcp_server.py                 # MCP server (stdio, for Claude Code)
 ```
+
+Or just: `bash demo.sh`
 
 ## Architecture
 
 ```
 [GitHub / Slack / Linear / Local Files]
-           ↓ connectors
+           ↓ connectors (ingest/)
     SQLite event queue (db/shadow.db)
-           ↓ worker (scripts/distill/worker.py)
-    Local Qwen via LM Studio (default) or Ollama — classify, summarize, append
-    Cloud LLM (Claude / Qwen Cloud / DeepSeek) — create new wiki pages
+           ↓ worker.py  [poll 30s]
+    Local LLM (LM Studio / Ollama) — classify, summarize, append
+    Cloud LLM (Qwen Cloud / Claude / DeepSeek) — create new pages [USE_CLOUD_LLM=true]
            ↓
     Obsidian wiki files (wiki/{module}.md)
-           ↓ MCP server (scripts/mcp_server.py)
-    Claude Code reads via search_wiki / get_module / etc.
+           ↓ mcp_server.py (FastMCP stdio)
+    Claude Code → search_wiki / get_module / list_modules / …
 ```
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `scripts/config.py` | All settings loaded from `.env` |
-| `scripts/db.py` | SQLite helpers — event queue, module index, FTS5 search |
-| `scripts/distill/llm_router.py` | Routes tasks to local (Qwen) or cloud LLM |
+| `scripts/config.py` | All settings loaded from `.env` (pydantic-settings) |
+| `scripts/db.py` | SQLite: event queue, module index, FTS5 trigram search |
+| `scripts/distill/llm_router.py` | Routes tasks to local vs cloud LLM |
 | `scripts/distill/worker.py` | Event consumption loop — run as daemon |
 | `scripts/wiki/manager.py` | Read/write Obsidian markdown with YAML frontmatter |
 | `scripts/mcp_server.py` | FastMCP stdio server — 6 tools |
-| `scripts/ingest_diff.py` | CLI: push a diff manually |
-| `scripts/resource_mgr.py` | CLI: init DB, show status, list modules |
+| `scripts/ingest_diff.py` | CLI: push a diff manually (with AST validation) |
+| `scripts/resource_mgr.py` | CLI: init / status / list / cloud / db / dev / compile |
+| `test_env.py` | Environment checker — connectivity + credential validation |
+
+## Toggle Commands
+
+```bash
+uv run python scripts/resource_mgr.py cloud on|off  # cloud LLM for new pages
+uv run python scripts/resource_mgr.py db on|off     # local SQLite vs DATABASE_URL
+uv run python scripts/resource_mgr.py dev           # free RAM + pause Docker
+uv run python scripts/resource_mgr.py compile       # load model + resume Docker
+```
 
 ## Switching LLM Backends
 
-Edit `.env` only — zero code changes:
+Edit `.env` only — zero code changes needed:
 
 ```env
 LOCAL_LLM_BACKEND=auto         # auto (default) | lmstudio | ollama
-CLOUD_LLM_BACKEND=deepseek     # claude (default) | qwen_cloud | deepseek
+CLOUD_LLM_BACKEND=qwen_cloud   # claude | qwen_cloud | deepseek
+USE_CLOUD_LLM=false            # false = all local; true = cloud for new pages
+LMSTUDIO_MODEL=qwen/qwen3-8b   # must match name shown in LM Studio
 ```
 
 `auto` probes LM Studio (`localhost:1234`) first, then Ollama (`localhost:11434`).
@@ -62,38 +77,24 @@ Add to `~/.claude/claude.json`:
 {
   "mcpServers": {
     "shadow-wiki": {
-      "command": "python",
-      "args": ["/absolute/path/to/shadow-wiki/scripts/mcp_server.py"]
+      "command": "uv",
+      "args": ["run", "python", "/absolute/path/to/shadow-wiki/scripts/mcp_server.py"]
     }
   }
 }
 ```
 
-Then in Claude Code: `search_wiki("your query")` or `get_module("auth/session")`.
-
 ## Running Tests
 
 ```bash
-uv run pytest -v
+uv run pytest -v    # 48 tests
 ```
 
 ## Manual End-to-End Test
 
 ```bash
-# 1. Init DB
 uv run python scripts/resource_mgr.py init
-
-# 2. Push a test diff
 echo "+def login(): pass" | uv run python scripts/ingest_diff.py --diff - --pr 1 --title "Add login"
-
-# 3. Run worker once (calls your configured LLM)
-uv run python -c "
-from scripts.db import init_db, get_pending_events
-from scripts.distill.worker import process_event
-init_db()
-for e in get_pending_events(): process_event(e)
-"
-
-# 4. Check results
+# wait 30s for worker, then:
 uv run python scripts/resource_mgr.py list
 ```
