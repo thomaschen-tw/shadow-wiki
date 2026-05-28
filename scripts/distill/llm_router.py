@@ -125,6 +125,7 @@ def call_llm(
     prompt: str,
     system: str = "You are a helpful assistant.",
 ) -> str:
-    if task_type in _LOCAL_TASKS:
+    # When USE_CLOUD_LLM=false all tasks run locally (no cloud API calls)
+    if not get_settings().use_cloud_llm or task_type in _LOCAL_TASKS:
         return _call_local(prompt, system)
     return _call_cloud(prompt, system)

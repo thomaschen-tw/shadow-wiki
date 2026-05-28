@@ -29,7 +29,7 @@ def test_summarize_routes_to_local(monkeypatch):
 
 
 def test_create_page_routes_to_cloud(monkeypatch):
-    _reset_settings(monkeypatch, CLOUD_LLM_BACKEND="claude")
+    _reset_settings(monkeypatch, CLOUD_LLM_BACKEND="claude", USE_CLOUD_LLM="true")
     with patch("scripts.distill.llm_router._call_cloud", return_value="page") as mock_cloud, \
          patch("scripts.distill.llm_router._call_local") as mock_local:
         from scripts.distill.llm_router import call_llm, TaskType
@@ -37,6 +37,17 @@ def test_create_page_routes_to_cloud(monkeypatch):
     mock_cloud.assert_called_once()
     mock_local.assert_not_called()
     assert result == "page"
+
+
+def test_create_page_uses_local_when_cloud_disabled(monkeypatch):
+    _reset_settings(monkeypatch, USE_CLOUD_LLM="false")
+    with patch("scripts.distill.llm_router._call_local", return_value="local-page") as mock_local, \
+         patch("scripts.distill.llm_router._call_cloud") as mock_cloud:
+        from scripts.distill.llm_router import call_llm, TaskType
+        result = call_llm(TaskType.CREATE_PAGE, "prompt")
+    mock_local.assert_called_once()
+    mock_cloud.assert_not_called()
+    assert result == "local-page"
 
 
 def test_call_openai_compatible_uses_correct_model(monkeypatch):

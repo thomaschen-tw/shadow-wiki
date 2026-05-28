@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     local_scan_extensions: str = ".py,.ts,.tsx,.md,.go"
 
     # LLM behaviour
+    use_cloud_llm: bool = False   # false = all tasks use local; true = cloud for new pages
     llm_timeout: int = 300
     enable_thinking: bool = False
 
