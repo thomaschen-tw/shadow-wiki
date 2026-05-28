@@ -1,13 +1,48 @@
+# ── Credentials & secrets ─────────────────────────────────────────────────────
+# The real .env with API keys — NEVER commit this
 .env
-db/
-raw/
+# Any .env variants (.env.local, .env.production, .env.staging, etc.)
+.env.*
+# Keep the template — it has no real keys
+!.env.example
+
+# ── Python runtime ────────────────────────────────────────────────────────────
+.venv/
 __pycache__/
 *.pyc
-.pytest_cache/
+*.pyo
 *.egg-info/
 dist/
+build/
+
+# ── Test artefacts ────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── Shadow Wiki runtime data (generated at runtime, not source) ───────────────
+db/
+raw/
+
+# ── Claude Code project settings ──────────────────────────────────────────────
+# settings.local.json may contain hooks with sensitive commands or paths
+# plans/ and specs/ are internal design artefacts
+.claude/
+
+# ── Internal superpowers planning docs ────────────────────────────────────────
+docs/superpowers/
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── macOS ─────────────────────────────────────────────────────────────────────
 .DS_Store
-# Obsidian workspace state (personal, not project config)
+.AppleDouble
+
+# ── Obsidian workspace state (personal, not project config) ───────────────────
 .obsidian/workspace.json
 .obsidian/workspace-mobile.json
-# wiki/ contains LLM-generated output — committed intentionally as living docs
+
+# ── wiki/ contains LLM-generated output — commit intentionally as living docs ─
+# (not gitignored — add/commit wiki/*.md to share the knowledge base)

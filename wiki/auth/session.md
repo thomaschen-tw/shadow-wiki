@@ -1,0 +1,34 @@
+---
+known_issues: []
+last_updated: '2026-05-28'
+module: auth/session
+owners: []
+recent_prs: []
+slack_threads: []
+tags: []
+---
+
+
+
+## Overview
+
+The `auth/session` module implements Redis-backed session management for authenticated user flows. It exposes two core functions:
+
+- `create_session(user_id: str) -> str`: Generates a session token by hashing `user_id` concatenated with a Unix timestamp using SHA-256. The token is persisted to Redis under the key `session:{token}` with a 3600-second (1-hour) TTL.
+- `validate_session(token: str) -> str | None`: Queries Redis for the specified token. Returns the associated `user_id` if the key exists, or `None` if the token is invalid or expired.
+
+**Dependencies & Requirements:**
+- Requires a pre-initialized `redis_client` instance (typically from a shared connection pool).
+- Requires the `time` module for monotonic timestamp generation.
+- Expects Redis to be available and configured for key expiration.
+
+## Recent Changes
+
+## Known Issues
+
+## Related Modules
+
+- `auth/user`: Manages user identity, credentials, and profile data.
+- `core/redis`: Initializes and provides the shared `redis_client` connection pool.
+- `auth/middleware`: Consumes this module to intercept requests, validate tokens, and attach user context to the request scope.
+- `core/config`: Supplies Redis connection parameters and session TTL defaults.
