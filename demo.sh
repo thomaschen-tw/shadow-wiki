@@ -4,6 +4,11 @@
 # Usage: bash demo.sh
 set -euo pipefail
 
+# Always run from project root so Python can find the 'scripts' package
+PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+cd "$PROJECT_ROOT"
+export PYTHONPATH="$PROJECT_ROOT"
+
 GREEN='\033[0;32m'; CYAN='\033[0;36m'; YELLOW='\033[1;33m'; NC='\033[0m'
 step() { echo -e "\n${CYAN}▶ $1${NC}"; }
 ok()   { echo -e "${GREEN}✓ $1${NC}"; }

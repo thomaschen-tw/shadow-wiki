@@ -1,8 +1,11 @@
 import hashlib
 import json
 import logging
+import sys
 import time
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from scripts.config import get_settings
 from scripts.db import get_known_file_hashes, push_event, update_file_hash

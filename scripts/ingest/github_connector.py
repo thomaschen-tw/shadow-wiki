@@ -2,6 +2,10 @@ import hashlib
 import hmac
 import json
 import logging
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import httpx
 from flask import Flask, abort, request

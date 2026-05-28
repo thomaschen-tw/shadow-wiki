@@ -1,7 +1,11 @@
 import json
 import logging
+import sys
 import time
 from datetime import datetime
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from scripts.db import get_pending_events, mark_event_done, mark_event_failed, mark_event_processing
 from scripts.distill.llm_router import TaskType, call_llm

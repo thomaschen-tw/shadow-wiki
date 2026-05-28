@@ -1,6 +1,10 @@
 import json
 import re
+import sys
 from datetime import datetime, timedelta
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from fastmcp import FastMCP
 from fastmcp.tools.function_tool import FunctionTool
