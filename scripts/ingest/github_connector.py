@@ -8,13 +8,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import httpx
-from flask import Flask, abort, request
+import uvicorn
+from fastapi import FastAPI, HTTPException, Request
 
 from scripts.config import get_settings
 from scripts.db import push_event
 
 logger = logging.getLogger(__name__)
-app = Flask(__name__)
+app = FastAPI()
 
 
 def verify_signature(payload_body: bytes, signature_header: str) -> bool:
@@ -44,21 +45,25 @@ def fetch_pr_diff(pr_api_url: str) -> str:
         return ""
 
 
-@app.route("/webhook/github", methods=["POST"])
-def github_webhook():
+@app.post("/webhook/github")
+async def github_webhook(request: Request):
+    body = await request.body()
     sig = request.headers.get("X-Hub-Signature-256", "")
-    if not verify_signature(request.data, sig):
-        abort(403)
+    if not verify_signature(body, sig):
+        raise HTTPException(status_code=403, detail="Invalid signature")
 
     event_type = request.headers.get("X-GitHub-Event", "")
-    payload = request.get_json(silent=True) or {}
+    try:
+        payload = json.loads(body)
+    except Exception:
+        payload = {}
 
     if event_type == "pull_request" and payload.get("action") in (
         "opened", "closed", "synchronize", "reopened"
     ):
         pr = payload["pull_request"]
         diff = fetch_pr_diff(pr["url"])
-        raw_json = json.dumps({
+        push_event("github", "pr", json.dumps({
             "pr_number": pr["number"],
             "title": pr["title"],
             "description": pr.get("body") or "",
@@ -66,26 +71,25 @@ def github_webhook():
             "diff": diff,
             "url": pr["html_url"],
             "merged": pr.get("merged", False),
-        })
-        push_event("github", "pr", raw_json)
+        }))
         logger.info("Queued PR #%d", pr["number"])
 
     elif event_type == "pull_request_review_comment":
         pr = payload.get("pull_request", {})
         comment = payload.get("comment", {})
-        raw_json = json.dumps({
+        push_event("github", "review_comment", json.dumps({
             "pr_number": pr.get("number", ""),
             "body": comment.get("body", ""),
             "author": comment.get("user", {}).get("login", ""),
             "path": comment.get("path", ""),
             "diff_hunk": comment.get("diff_hunk", ""),
-        })
-        push_event("github", "review_comment", raw_json)
+        }))
 
-    return {"status": "ok"}, 200
+    return {"status": "ok"}
 
 
 if __name__ == "__main__":
     from scripts.db import init_db
+    logging.basicConfig(level=logging.INFO)
     init_db()
-    app.run(port=9000)
+    uvicorn.run(app, host="0.0.0.0", port=9000)

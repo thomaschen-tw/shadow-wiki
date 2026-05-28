@@ -67,30 +67,50 @@ flowchart TD
 
 ## Quick Start
 
-**Prerequisites:** Python 3.12, [uv](https://docs.astral.sh/uv/), and either [LM Studio](https://lmstudio.ai) or [Ollama](https://ollama.com) with a Qwen 3 model loaded.
+**Prerequisites:** Python 3.12 · [uv](https://docs.astral.sh/uv/) (`brew install uv`) · [LM Studio](https://lmstudio.ai) or [Ollama](https://ollama.com) with a Qwen 3 model loaded.
 
 ```bash
 # 1. Clone and install
 git clone https://github.com/thomaschen-tw/shadow-wiki.git && cd shadow-wiki
-uv sync                                    # Python 3.12 venv + all deps
+uv sync                        # creates .venv with Python 3.12 + all deps
 
 # 2. Configure
-cp .env.example .env                       # fill in your tokens
-uv run python test_env.py                  # verify environment before starting
+cp .env.example .env           # copy template
+# Edit .env: set LMSTUDIO_MODEL to the model name shown in LM Studio
+# Run connectivity check — catches wrong model names, missing API keys
+uv run python test_env.py
 
-# 3. One-command demo
-bash demo.sh                               # init → worker → push test diff → show wiki output
+# 3. Initialise and run
+uv run python scripts/resource_mgr.py init   # create SQLite database
+bash demo.sh                                 # worker → push test diff → show output
 ```
 
-Or step by step:
+**Manual step-by-step:**
 
 ```bash
-uv run python scripts/resource_mgr.py init          # initialise database
-uv run python scripts/distill/worker.py &           # start distillation worker
-uv run python scripts/ingest_diff.py --diff - \
-  --pr 1 --title "Add login" <<< "+def login(): pass"   # push a diff
-uv run python scripts/resource_mgr.py list          # see indexed modules
+uv run python scripts/distill/worker.py &    # distillation worker (background)
+
+# Push any diff and let the worker process it within 30 s
+git diff HEAD~1 | uv run python scripts/ingest_diff.py \
+  --diff - --pr 1 --title "My change"
+
+uv run python scripts/resource_mgr.py list   # see indexed wiki modules
 ```
+
+**Connect to Claude Code** — add to `~/.claude/claude.json`:
+
+```json
+{
+  "mcpServers": {
+    "shadow-wiki": {
+      "command": "uv",
+      "args": ["run", "python", "/absolute/path/to/shadow-wiki/scripts/mcp_server.py"]
+    }
+  }
+}
+```
+
+Then ask Claude Code: `search_wiki("redis session")` or `get_module("auth/session")`.
 
 ---
 
@@ -136,22 +156,9 @@ All data sources are **optional**. Shadow Wiki works with just manual diff inges
 
 ---
 
-## Claude Code MCP Integration
+## MCP Tools (Claude Code)
 
-Add to `~/.claude/claude.json`:
-
-```json
-{
-  "mcpServers": {
-    "shadow-wiki": {
-      "command": "uv",
-      "args": ["run", "python", "/absolute/path/to/shadow-wiki/scripts/mcp_server.py"]
-    }
-  }
-}
-```
-
-Available tools in Claude Code:
+Once the MCP server is registered, Claude Code can call:
 
 ```
 search_wiki("redis session token")          → FTS5 search across all wiki content

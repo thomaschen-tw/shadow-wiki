@@ -479,7 +479,7 @@ get_pipeline_status_tool()
 ┌──────────────────────────────────────────────────────────┐
 │                  INGESTION CONNECTORS                    │
 │  github_connector.py  slack_connector.py  local_scanner  │
-│  (Flask :9000)        (Socket Mode)       (poll 120s)    │
+│  (FastAPI :9000)        (Socket Mode)       (poll 120s)    │
 └────────────────────────────┬─────────────────────────────┘
                              │  push_event(source, type, json)
                              ▼
@@ -536,7 +536,7 @@ shadow-wiki/
 ├── pyproject.toml              ← uv project file + pytest config
 ├── requirements.txt            ← legacy pip fallback
 ├── CLAUDE.md                   ← developer quick-start
-├── QUICK-START.md              ← 5-minute onboarding guide
+├── README.md                   ← project overview and quick start
 ├── docs/SOP.md                 ← this file
 ├── wiki/                       ← generated Obsidian pages (wiki vault root)
 ├── db/shadow.db                ← SQLite (events + module index + FTS5)
@@ -549,7 +549,7 @@ shadow-wiki/
 │   │   ├── prompts.py          ← all system prompts + builders
 │   │   └── worker.py           ← event consumption loop (daemon)
 │   ├── ingest/
-│   │   ├── github_connector.py ← Flask webhook (port 9000)
+│   │   ├── github_connector.py ← FastAPI webhook (port 9000)
 │   │   ├── slack_connector.py  ← Slack Socket Mode
 │   │   ├── linear_connector.py ← Linear GraphQL poll
 │   │   └── local_scanner.py    ← MD5 hash change detection
