@@ -65,6 +65,10 @@ class Settings(BaseSettings):
     llm_timeout: int = 300
     enable_thinking: bool = False
 
+    # Database
+    use_local_db: bool = True   # false = use DATABASE_URL (PostgreSQL / remote)
+    database_url: str = ""      # e.g. postgresql://user:pass@host/dbname
+
     # System
     wiki_dir: str = "./wiki"
     db_path: str = "./db/shadow.db"

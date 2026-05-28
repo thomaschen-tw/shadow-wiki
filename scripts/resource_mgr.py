@@ -6,7 +6,8 @@ Commands:
   init              Initialise the SQLite database
   status            Show pipeline queue health
   list              List all indexed wiki modules
-  cloud on|off      Toggle USE_CLOUD_LLM in .env (on = enable cloud for new pages)
+  db on|off         Toggle USE_LOCAL_DB (on=SQLite, off=DATABASE_URL)
+  cloud on|off      Toggle USE_CLOUD_LLM (on=cloud for new pages, off=all local)
   dev               Dev mode: pause Docker containers, unload local model from RAM
   compile           Compile mode: resume Docker containers, load local model into RAM
 """
@@ -54,6 +55,29 @@ def cmd_list():
         print(f"  {r['path']:<40} {r['last_updated'] or '—'}")
         if r["summary"]:
             print(f"    {r['summary'][:80]}")
+
+
+# ── Database toggle ───────────────────────────────────────────────────────────
+
+def cmd_db(state: str) -> None:
+    if state not in ("on", "off"):
+        print("Usage: resource_mgr.py db on|off")
+        print("  on  = local SQLite (default)")
+        print("  off = online database (set DATABASE_URL in .env)")
+        sys.exit(1)
+    value = "true" if state == "on" else "false"
+    _update_env_key("USE_LOCAL_DB", value)
+    import scripts.config as cfg
+    cfg._settings = None
+    if state == "on":
+        db_path = get_settings().db_path
+        print(f"Local DB enabled  →  {db_path}")
+    else:
+        url = get_settings().database_url
+        if not url:
+            print("Online DB selected. Set DATABASE_URL in .env to a PostgreSQL connection string.")
+        else:
+            print(f"Online DB enabled  →  {url}")
 
 
 # ── Cloud toggle ───────────────────────────────────────────────────────────────
@@ -149,6 +173,8 @@ def main() -> None:
         cmd_status()
     elif cmd == "list":
         cmd_list()
+    elif cmd == "db":
+        cmd_db(args[1] if len(args) > 1 else "")
     elif cmd == "cloud":
         cmd_cloud(args[1] if len(args) > 1 else "")
     elif cmd == "dev":
