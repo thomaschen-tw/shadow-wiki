@@ -24,7 +24,8 @@
 
 | Requirement | Version | Notes |
 |---|---|---|
-| Python | 3.11+ | 3.13 confirmed working |
+| Python | 3.12 | pinned via `.python-version`; `uv` downloads it automatically |
+| uv | latest | `pip install uv` or `brew install uv` |
 | LM Studio **or** Ollama | latest | local LLM backend |
 | Qwen 3 35B model | any quant | loaded in LM Studio or pulled in Ollama |
 | Git | any | for the project itself |
@@ -32,7 +33,7 @@
 | Slack workspace (optional) | — | Bot + App tokens needed |
 | Linear workspace (optional) | — | API key needed |
 
-**Minimum to run:** Python + LM Studio with Qwen loaded. Everything else is optional.
+**Minimum to run:** Python 3.12 + uv + LM Studio with Qwen loaded. Everything else is optional.
 
 ---
 
@@ -42,14 +43,14 @@
 # Clone / enter the project
 cd /path/to/shadow-wiki
 
-# Install Python dependencies
-pip install -r requirements.txt
+# Create venv with Python 3.12 and install all deps (uv downloads Python if needed)
+uv sync
 
 # Copy config template
 cp .env.example .env
 
 # Initialise the database
-python scripts/resource_mgr.py init
+uv run python scripts/resource_mgr.py init
 ```
 
 Expected output from `init`:
@@ -59,7 +60,7 @@ Database initialized.
 
 Verify with:
 ```bash
-python scripts/resource_mgr.py status
+uv run python scripts/resource_mgr.py status
 ```
 ```
 Pending : 0
@@ -78,10 +79,11 @@ All configuration lives in `.env`. Never commit this file — it is gitignored.
 
 ```env
 # Which local backend to use for classify / summarize / append tasks
-LOCAL_LLM_BACKEND=lmstudio     # lmstudio | ollama
+LOCAL_LLM_BACKEND=auto          # auto (default) | lmstudio | ollama
+# auto = probe LM Studio (localhost:1234) first, fall back to Ollama
 
 # Which cloud backend to use for create-page / synthesize tasks
-CLOUD_LLM_BACKEND=claude        # claude | qwen_cloud | deepseek
+CLOUD_LLM_BACKEND=claude        # claude (default) | qwen_cloud | deepseek
 ```
 
 **Cost profile:** 99 % of operations go to the local model (free). Cloud is called only when a brand-new wiki module is created for the first time.
@@ -143,7 +145,19 @@ LOCAL_SCAN_PATHS=./src,./docs   # Comma-separated directories to watch
 LOCAL_SCAN_EXTENSIONS=.py,.ts,.tsx,.md,.go
 ```
 
-### 3.5 System Paths
+### 3.5 LLM Behaviour
+
+```env
+# Request timeout in seconds — set higher for large local models (default: 300)
+LLM_TIMEOUT=300
+
+# Disable Qwen3 thinking mode — keeps pipeline responses direct and fast
+ENABLE_THINKING=false
+```
+
+`ENABLE_THINKING=false` passes `{"enable_thinking": false}` in the API `extra_body`. Set to `true` only if you want the model to reason step-by-step (slower, more tokens).
+
+### 3.6 System Paths
 
 ```env
 WIKI_DIR=./wiki         # Where Obsidian .md files are written
@@ -368,15 +382,19 @@ Only two `.env` variables need changing. The worker picks them up on the next re
 
 | Scenario | Change |
 |---|---|
-| Switch local from LM Studio to Ollama | `LOCAL_LLM_BACKEND=ollama` |
-| Use DeepSeek instead of Claude for new pages | `CLOUD_LLM_BACKEND=deepseek` |
-| Use Qwen Cloud instead of Claude | `CLOUD_LLM_BACKEND=qwen_cloud` |
+| Auto-detect local backend (default) | `LOCAL_LLM_BACKEND=auto` |
+| Force LM Studio | `LOCAL_LLM_BACKEND=lmstudio` |
+| Switch local to Ollama | `LOCAL_LLM_BACKEND=ollama` |
+| Use Qwen Cloud for new pages | `CLOUD_LLM_BACKEND=qwen_cloud` |
+| Use DeepSeek for new pages | `CLOUD_LLM_BACKEND=deepseek` |
 | Use a different local model | `LMSTUDIO_MODEL=your-model-name` |
+| Increase timeout for slow models | `LLM_TIMEOUT=600` |
+| Enable Qwen3 step-by-step reasoning | `ENABLE_THINKING=true` |
 
 After editing `.env`, restart the worker:
 ```bash
 # kill existing worker, then:
-python scripts/distill/worker.py
+uv run python scripts/distill/worker.py
 ```
 
 ### LLM task routing (what gets called when)
@@ -508,17 +526,21 @@ get_pipeline_status_tool()
                     └─────────────────┘
 ```
 
-### File Map
+### Project Structure
 
 ```
 shadow-wiki/
 ├── .env                        ← sole config source (never commit)
 ├── .env.example                ← config template (commit this)
-├── requirements.txt
-├── pytest.ini
+├── .python-version             ← pins Python 3.12 for uv / pyenv
+├── pyproject.toml              ← uv project file + pytest config
+├── requirements.txt            ← legacy pip fallback
 ├── CLAUDE.md                   ← developer quick-start
-├── wiki/                       ← generated Obsidian pages
-├── db/shadow.db                ← SQLite (events + index + FTS)
+├── QUICK-START.md              ← 5-minute onboarding guide
+├── docs/SOP.md                 ← this file
+├── wiki/                       ← generated Obsidian pages (wiki vault root)
+├── db/shadow.db                ← SQLite (events + module index + FTS5)
+├── raw/                        ← raw event JSON backups (debug)
 ├── scripts/
 │   ├── config.py               ← pydantic-settings Settings class
 │   ├── db.py                   ← SQLite CRUD + FTS helpers
@@ -536,8 +558,8 @@ shadow-wiki/
 │   ├── mcp_server.py           ← FastMCP stdio server
 │   ├── ingest_diff.py          ← CLI: push diff manually
 │   └── resource_mgr.py         ← CLI: init / status / list
-└── tests/                      ← 47 tests
-    ├── conftest.py             ← tmp_db fixture
+└── tests/                      ← 47 tests (uv run pytest)
+    ├── conftest.py             ← tmp_db fixture (isolates DB per test)
     ├── test_config.py
     ├── test_db.py
     ├── test_llm_router.py
@@ -545,7 +567,7 @@ shadow-wiki/
     ├── test_worker.py
     ├── test_github_connector.py
     ├── test_mcp_server.py
-    └── test_integration.py
+    └── test_integration.py     ← end-to-end: event → LLM → wiki → MCP search
 ```
 
 ---
@@ -626,11 +648,11 @@ print(f'Reset {n} stuck events')
 
 Run the full suite to identify regressions:
 ```bash
-pytest -v
+uv run pytest -v
 ```
 
 The `conftest.py` fixture creates an isolated temporary DB per test, so tests are independent of any real `db/shadow.db`.
 
 ---
 
-*Last updated: 2026-05-27 | Shadow Wiki v1.0*
+*Last updated: 2026-05-28 | Shadow Wiki v1.1*

@@ -32,8 +32,10 @@ def _anthropic_client() -> anthropic.Anthropic:
 
 
 def _call_openai_compatible(
-    base_url: str, api_key: str, model: str, prompt: str, system: str
+    base_url: str, api_key: str, model: str, prompt: str, system: str,
+    extra_body: dict | None = None,
 ) -> str:
+    s = get_settings()
     client = _openai_client(base_url, api_key or "")
     response = client.chat.completions.create(
         model=model,
@@ -41,6 +43,8 @@ def _call_openai_compatible(
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},
         ],
+        timeout=s.llm_timeout,
+        extra_body=extra_body or {},
     )
     if not response.choices:
         raise ValueError(f"LLM returned no choices (model={model})")
@@ -89,14 +93,15 @@ def _detect_local_backend() -> LocalBackend:
 def _call_local(prompt: str, system: str) -> str:
     s = get_settings()
     backend = _detect_local_backend() if s.local_llm_backend == LocalBackend.AUTO else s.local_llm_backend
+    extra = {"enable_thinking": s.enable_thinking}
     if backend == LocalBackend.LMSTUDIO:
         return _call_openai_compatible(
             base_url=s.lmstudio_base_url, api_key="", model=s.lmstudio_model,
-            prompt=prompt, system=system,
+            prompt=prompt, system=system, extra_body=extra,
         )
     return _call_openai_compatible(
         base_url=s.ollama_base_url, api_key="ollama", model=s.ollama_model,
-        prompt=prompt, system=system,
+        prompt=prompt, system=system, extra_body=extra,
     )
 
 

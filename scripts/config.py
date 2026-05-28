@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     local_scan_paths: str = "./src"
     local_scan_extensions: str = ".py,.ts,.tsx,.md,.go"
 
+    # LLM behaviour
+    llm_timeout: int = 300
+    enable_thinking: bool = False
+
     # System
     wiki_dir: str = "./wiki"
     db_path: str = "./db/shadow.db"

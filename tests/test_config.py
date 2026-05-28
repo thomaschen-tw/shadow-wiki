@@ -5,13 +5,13 @@ from pydantic import ValidationError
 
 def test_default_local_backend():
     from scripts.config import Settings, LocalBackend
-    s = Settings()
-    assert s.local_llm_backend == LocalBackend.LMSTUDIO
+    s = Settings(_env_file=None)
+    assert s.local_llm_backend == LocalBackend.AUTO
 
 
 def test_default_cloud_backend():
     from scripts.config import Settings, CloudBackend
-    s = Settings()
+    s = Settings(_env_file=None)
     assert s.cloud_llm_backend == CloudBackend.CLAUDE
 
 
@@ -31,7 +31,7 @@ def test_override_cloud_backend_from_env(monkeypatch):
 
 def test_lmstudio_defaults():
     from scripts.config import Settings
-    s = Settings()
+    s = Settings(_env_file=None)
     assert s.lmstudio_base_url == "http://localhost:1234/v1"
     assert s.lmstudio_model == "qwen3-35b"
 
