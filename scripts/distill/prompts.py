@@ -65,3 +65,74 @@ def synthesize_prompt(module_path: str, recent_events: list[str]) -> str:
 
 def query_expand_prompt(user_query: str) -> str:
     return f"Expand for technical wiki search: {user_query[:500]}"
+
+
+# ── Knowledge base prompts ────────────────────────────────────────────────────
+
+KNOWLEDGE_CLASSIFY_SYSTEM = (
+    "You are a knowledge base organiser. Given the title, category hint, and content of a wiki note, "
+    "assign it to 1-2 topic paths in a personal knowledge wiki. "
+    "Return ONLY a JSON array of paths starting with 'knowledge/', e.g. "
+    '[\"knowledge/ai/rag\", \"knowledge/tools/obsidian\"]. '
+    "Use the category hint as the first path component unless a better fit exists. "
+    "Paths must be lowercase, hyphen-separated, max 3 levels deep."
+)
+
+KNOWLEDGE_SUMMARIZE_SYSTEM = (
+    "You are a knowledge distillation assistant. Extract the most valuable information from a wiki note. "
+    "Return ONLY valid JSON with these fields: "
+    "insights (list of 3-5 concise, standalone insight statements), "
+    "key_concepts (list of important terms or concepts), "
+    "important_quotes (list of 0-2 verbatim notable quotes), "
+    "tags (list of 3-6 topic tags)."
+)
+
+KNOWLEDGE_CREATE_PAGE_SYSTEM = (
+    "You are a knowledge wiki author. Create a structured wiki page summarising a topic. "
+    "Use these exact sections: "
+    "## Overview (2-3 sentences defining the topic), "
+    "## Key Concepts (bullet list of core ideas), "
+    "## Key Insights (bullet list of most valuable takeaways), "
+    "## Sources (bullet list with any source URLs), "
+    "## Related Topics (bullet list of related knowledge paths). "
+    "Be concise. Write in English unless the source content is primarily Chinese, in which case match the language."
+)
+
+KNOWLEDGE_APPEND_SYSTEM = (
+    "You are a knowledge wiki maintainer. Write 2-4 new bullet points to prepend to the Key Insights section. "
+    "Each bullet must be a standalone insight not already present in the existing page. "
+    "Be specific and factual. Do not repeat the date or source — those are added automatically."
+)
+
+
+def knowledge_classify_prompt(title: str, content: str, category: str, tags: list[str]) -> str:
+    tag_hint = f"Tags: {', '.join(tags)}\n" if tags else ""
+    return (
+        f"Title: {title}\n"
+        f"Category hint: {category}\n"
+        f"{tag_hint}"
+        f"Content (excerpt):\n{content[:400]}"
+    )
+
+
+def knowledge_summarize_prompt(title: str, content: str) -> str:
+    return f"Title: {title}\n\nContent:\n{content[:5000]}"
+
+
+def knowledge_create_page_prompt(topic_path: str, title: str, content: str) -> str:
+    return (
+        f"Topic path: {topic_path}\n"
+        f"Source note title: {title}\n\n"
+        f"Source content:\n{content[:4000]}"
+    )
+
+
+def knowledge_append_prompt(
+    existing_content: str, insights: list[str], source_title: str, date: str
+) -> str:
+    insights_text = "\n".join(f"- {i}" for i in insights[:5])
+    return (
+        f"Date: {date}\nSource: {source_title}\n\n"
+        f"New insights to incorporate:\n{insights_text}\n\n"
+        f"Existing page content (for context — do not repeat):\n{existing_content[:1500]}"
+    )

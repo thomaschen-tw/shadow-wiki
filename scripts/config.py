@@ -69,6 +69,12 @@ class Settings(BaseSettings):
     use_local_db: bool = True   # false = use DATABASE_URL (PostgreSQL / remote)
     database_url: str = ""      # e.g. postgresql://user:pass@host/dbname
 
+    # Knowledge Base (Obsidian vault wiki subfolder)
+    knowledge_base_path: str = ""
+    # e.g. /Users/xiaotongchen/Documents/obsidian/knowledge_base/wiki
+    knowledge_base_extensions: str = ".md"
+    knowledge_base_similarity_threshold: float = 0.85
+
     # System
     wiki_dir: str = "./wiki"
     db_path: str = "./db/shadow.db"
