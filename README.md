@@ -1,6 +1,6 @@
 # Shadow Wiki
 
-> A self-updating technical wiki that turns GitHub PRs, Slack conversations, Linear tickets, and local code changes into a searchable, structured knowledge base — automatically.
+> A self-updating technical wiki that turns GitHub PRs, Slack conversations, Linear tickets, local code changes, and your Obsidian knowledge vault into a searchable, structured knowledge base — automatically.
 
 Shadow Wiki runs a hybrid local/cloud LLM pipeline that watches your team's activity streams, distills them into module-level Obsidian wiki pages, and exposes everything as a FastMCP server so Claude Code can query your codebase context without scanning files.
 
@@ -12,7 +12,7 @@ Developer knowledge lives in too many places at once: PR descriptions, Slack thr
 
 ## What Shadow Wiki Does
 
-- **Watches** GitHub PRs, Slack channels, Linear tickets, and local file changes
+- **Watches** GitHub PRs, Slack channels, Linear tickets, local file changes, and your Obsidian wiki notes (daily digest)
 - **Distills** each event through a local Qwen model (free, private, fast) — classifies which code modules are affected, summarises the change, appends it to the right wiki page
 - **Creates** new wiki pages via a cloud model (Qwen Cloud / Claude / DeepSeek) only when a module is seen for the first time — so cloud cost stays near zero
 - **Exposes** the entire wiki as a FastMCP server, letting Claude Code call `search_wiki("redis session")` instead of grepping thousands of files
@@ -28,6 +28,7 @@ flowchart TD
         SL["Slack"]
         LI["Linear"]
         FS["Local Files"]
+        KB["Obsidian Vault\nwiki/"]
         CLI["Manual Diff"]
     end
 
@@ -36,6 +37,7 @@ flowchart TD
         SL_C["slack_connector\nSocket Mode"]
         LI_C["linear_connector\nGraphQL poll"]
         LS_C["local_scanner\nMD5 change detect"]
+        KB_C["knowledge_base_scanner\nMD5 + similarity"]
         ID["ingest_diff.py\nAST validation"]
     end
 
@@ -51,8 +53,8 @@ flowchart TD
     MCP["MCP Server\nmcp_server.py stdio\n6 tools"]
     CC["Claude Code"]
 
-    GH-->GH_C; SL-->SL_C; LI-->LI_C; FS-->LS_C; CLI-->ID
-    GH_C & SL_C & LI_C & LS_C & ID --> DB
+    GH-->GH_C; SL-->SL_C; LI-->LI_C; FS-->LS_C; KB-->KB_C; CLI-->ID
+    GH_C & SL_C & LI_C & LS_C & KB_C & ID --> DB
     DB --> W
     W --> LOCAL --> WIKI
     W --> CLOUD --> WIKI
@@ -152,9 +154,12 @@ uv run python scripts/resource_mgr.py compile    # load model + resume Docker
 | Slack | `slack_connector.py` — Socket Mode | Bot + App tokens, see Slack app settings |
 | Linear | `linear_connector.py` — GraphQL poll | `LINEAR_API_KEY` |
 | Local files | `local_scanner.py` — MD5 change detection | Set `LOCAL_SCAN_PATHS` in `.env` |
+| Obsidian knowledge base | `knowledge_base_scanner.py` — scans vault `wiki/` | Set `KNOWLEDGE_BASE_PATH` in `.env`; daily job via [GitHub Actions](docs/github-actions-setup.md) |
 | Manual | `ingest_diff.py` — CLI with AST validation | None |
 
 All data sources are **optional**. The poller is the easiest way to get started with a GitHub repo — no webhook or ngrok needed.
+
+**Knowledge base digest:** Point `KNOWLEDGE_BASE_PATH` at your Obsidian vault's `wiki/` subfolder (e.g. `concepts/`, `summaries/`). The scanner uses MD5 + token-similarity dedup so unchanged notes skip the LLM. Output lands in `wiki/knowledge/…` with sections like Overview, Key Insights, and Sources. Run manually with `uv run python scripts/ingest/knowledge_base_scanner.py --once`, or schedule daily on a self-hosted Mac runner — see [docs/github-actions-setup.md](docs/github-actions-setup.md).
 
 ---
 
@@ -188,7 +193,8 @@ shadow-wiki/
 │   │   ├── github_connector.py ← Flask webhook server (port 9000)
 │   │   ├── slack_connector.py  ← Slack Socket Mode listener
 │   │   ├── linear_connector.py ← Linear GraphQL poller (every 5 min)
-│   │   └── local_scanner.py    ← MD5-based file change detector
+│   │   ├── local_scanner.py    ← MD5-based file change detector
+│   │   └── knowledge_base_scanner.py ← Obsidian vault wiki/ scanner
 │   ├── wiki/
 │   │   └── manager.py          ← read/write Obsidian .md with YAML frontmatter
 │   ├── mcp_server.py           ← FastMCP stdio server (6 tools for Claude Code)
@@ -199,7 +205,8 @@ shadow-wiki/
 ├── docs/
 │   ├── SOP.md                  ← full setup and operations guide
 │   ├── architecture.md         ← ASCII + Mermaid architecture diagrams
-│   └── github-setup.md         ← step-by-step GitHub webhook setup
+│   ├── github-setup.md         ← step-by-step GitHub webhook setup
+│   └── github-actions-setup.md ← self-hosted runner for daily knowledge digest
 ├── demo.sh                     ← one-command MVP demo
 ├── test_env.py                 ← environment checker (connectivity + credentials)
 ├── .env.example                ← config template
@@ -226,6 +233,7 @@ uv run pytest -v
 | [docs/workflow.md](docs/workflow.md) | Execution sequence diagram, what appears in `raw/` and `wiki/` |
 | [docs/architecture.md](docs/architecture.md) | ASCII + Mermaid component diagrams |
 | [docs/github-setup.md](docs/github-setup.md) | GitHub token, poller vs webhook, ngrok for realtime |
+| [docs/github-actions-setup.md](docs/github-actions-setup.md) | Self-hosted runner, daily Obsidian knowledge digest |
 
 ---
 

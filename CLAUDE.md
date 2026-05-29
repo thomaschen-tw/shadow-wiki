@@ -21,7 +21,7 @@ Or just: `bash demo.sh`
 ## Architecture
 
 ```
-[GitHub / Slack / Linear / Local Files]
+[GitHub / Slack / Linear / Local Files / Obsidian KB]
            ↓ connectors (ingest/)
     SQLite event queue (db/shadow.db)
            ↓ worker.py  [poll 30s]
@@ -43,6 +43,7 @@ Or just: `bash demo.sh`
 | `scripts/distill/worker.py` | Event consumption loop — run as daemon |
 | `scripts/wiki/manager.py` | Read/write Obsidian markdown with YAML frontmatter |
 | `scripts/mcp_server.py` | FastMCP stdio server — 6 tools |
+| `scripts/ingest/knowledge_base_scanner.py` | Scan Obsidian vault `wiki/` → `source=knowledge_base` events |
 | `scripts/ingest_diff.py` | CLI: push a diff manually (with AST validation) |
 | `scripts/resource_mgr.py` | CLI: init / status / list / cloud / db / dev / compile |
 | `test_env.py` | Environment checker — connectivity + credential validation |
@@ -89,6 +90,18 @@ Add to `~/.claude/claude.json`:
 ```bash
 uv run pytest -v    # 48 tests
 ```
+
+## Knowledge Base (Obsidian daily digest)
+
+Set `KNOWLEDGE_BASE_PATH` in `.env` to your vault's `wiki/` folder. Scanner only walks that path (not `raw/`).
+
+```bash
+uv run python scripts/ingest/knowledge_base_scanner.py --dry-run   # preview
+uv run python scripts/ingest/knowledge_base_scanner.py --once        # queue events
+# worker processes → wiki/knowledge/…
+```
+
+Daily automation: `.github/workflows/daily-knowledge-digest.yml` on a self-hosted Mac runner — see `docs/github-actions-setup.md`.
 
 ## Manual End-to-End Test
 

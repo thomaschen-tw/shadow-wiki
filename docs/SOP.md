@@ -143,6 +143,10 @@ LINEAR_API_KEY=lin_...          # Personal API Key from Linear settings
 # Local file scan
 LOCAL_SCAN_PATHS=./src,./docs   # Comma-separated directories to watch
 LOCAL_SCAN_EXTENSIONS=.py,.ts,.tsx,.md,.go
+
+# Obsidian knowledge base (vault wiki/ subfolder — never uploaded to this repo)
+KNOWLEDGE_BASE_PATH=/path/to/your/obsidian/vault/wiki
+KNOWLEDGE_BASE_SIMILARITY_THRESHOLD=0.85   # skip LLM if >85% token overlap with last run
 ```
 
 ### 3.5 LLM Behaviour
@@ -208,6 +212,45 @@ python scripts/ingest/local_scanner.py
 ```
 
 The scanner runs a full pass at startup and then every 2 minutes (default). On first run it will queue all matching files as `file_change` events.
+
+### 4.5 Knowledge Base (daily digest)
+
+Distills your personal Obsidian vault's **wiki/** subfolder (`concepts/`, `comparisons/`, `entities/`, `summaries/`) into structured pages under `wiki/knowledge/…` in this repo. Raw clippings under `raw/` are not scanned — only curated wiki notes.
+
+**One-time setup:**
+
+1. Set `KNOWLEDGE_BASE_PATH` in `.env` to your vault's wiki folder, e.g.  
+   `/Users/you/Documents/obsidian/knowledge_base/wiki`
+2. Install a [self-hosted GitHub Actions runner](github-actions-setup.md) on your Mac (the vault stays local; only distilled output is committed).
+
+**Manual run:**
+
+```bash
+# Preview what would be queued (no DB writes)
+uv run python scripts/ingest/knowledge_base_scanner.py --dry-run
+
+# Queue changed notes
+uv run python scripts/ingest/knowledge_base_scanner.py --once
+
+# Process events (worker must be running, or run inline)
+uv run python scripts/distill/worker.py &
+# …or process a batch once:
+uv run python -c "
+from scripts.db import init_db, get_pending_events
+from scripts.distill.worker import process_event
+init_db()
+for e in get_pending_events(limit=200):
+    process_event(e)
+"
+
+uv run python scripts/resource_mgr.py list   # expect wiki/knowledge/… paths
+```
+
+**Automated daily run:** Workflow `.github/workflows/daily-knowledge-digest.yml` runs at 09:00 CST on the self-hosted runner: scan → distill → `git commit` `wiki/` → push. Trigger manually from GitHub → Actions → **Daily Knowledge Digest** → Run workflow.
+
+**Dedup:** Stage 1 skips files whose MD5 is unchanged. Stage 2 skips files whose token overlap with the last processed snapshot exceeds `KNOWLEDGE_BASE_SIMILARITY_THRESHOLD` (default 0.85). Re-queue everything once with `--force --once`.
+
+**Worker routing:** Events with `source=knowledge_base` use knowledge-specific prompts (Overview / Key Insights / Sources) and incremental append — new insights only, no full page rewrite when the topic page already exists.
 
 ---
 
@@ -472,7 +515,7 @@ get_pipeline_status_tool()
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                     DATA SOURCES                        │
-│  GitHub (PR/Review) │ Slack (messages) │ Linear │ Local │
+│  GitHub │ Slack │ Linear │ Local │ Obsidian KB │
 └──────────┬──────────┴────────┬─────────┴───┬────┴───┬───┘
            │                   │             │        │
            ▼                   ▼             ▼        ▼
@@ -552,7 +595,8 @@ shadow-wiki/
 │   │   ├── github_connector.py ← FastAPI webhook (port 9000)
 │   │   ├── slack_connector.py  ← Slack Socket Mode
 │   │   ├── linear_connector.py ← Linear GraphQL poll
-│   │   └── local_scanner.py    ← MD5 hash change detection
+│   │   ├── local_scanner.py    ← MD5 hash change detection
+│   │   └── knowledge_base_scanner.py ← Obsidian vault wiki/ scanner
 │   ├── wiki/
 │   │   └── manager.py          ← read/write Obsidian .md files
 │   ├── mcp_server.py           ← FastMCP stdio server

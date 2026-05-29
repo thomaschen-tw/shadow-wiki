@@ -66,6 +66,64 @@ sequenceDiagram
 
 ---
 
+## Knowledge Base Lane (Obsidian → wiki/knowledge/)
+
+Separate from code events. Scans only `KNOWLEDGE_BASE_PATH` (your vault's `wiki/` folder). Worker dispatches `source=knowledge_base` to `_handle_knowledge_event()`.
+
+```mermaid
+sequenceDiagram
+    actor Cron as GitHub Actions<br/>(self-hosted Mac)
+    participant Scanner as knowledge_base_scanner.py
+    participant Vault as Obsidian vault<br/>wiki/*.md
+    participant DB as SQLite
+    participant Worker as worker.py
+    participant LLM as Local / Cloud LLM
+    participant Out as wiki/knowledge/*.md
+
+    Cron->>Scanner: --once (daily 09:00 CST)
+    Scanner->>Vault: walk concepts/, summaries/, …
+    Vault-->>Scanner: markdown + YAML frontmatter
+
+    alt MD5 unchanged
+        Scanner-->>Cron: skip (no event)
+    else similarity > 85%
+        Scanner-->>Cron: skip LLM (update hash only)
+    else meaningful change
+        Scanner->>DB: push_event("knowledge_base", "note", JSON)
+    end
+
+    Worker->>DB: get_pending_events()
+    Worker->>LLM: KNOWLEDGE_CLASSIFY → knowledge/ai/rag
+    Worker->>LLM: KNOWLEDGE_SUMMARIZE → insights JSON
+
+    alt New topic page
+        Worker->>LLM: KNOWLEDGE_CREATE_PAGE
+        Worker->>Out: write wiki/knowledge/…/topic.md
+    else Existing page
+        Worker->>Worker: filter insights already in page
+        Worker->>LLM: KNOWLEDGE_APPEND (only if new insights)
+        Worker->>Out: prepend to ## Key Insights
+    end
+
+    Cron->>Cron: git add wiki/ && commit && push
+```
+
+**Output shape** (under `wiki/knowledge/`, not `wiki/auth/`):
+
+```
+wiki/knowledge/
+├── concepts/
+│   └── rag-retrieval-augmented-generation.md
+├── ai/
+│   └── multi-agent.md
+└── tools/
+    └── obsidian.md
+```
+
+Sections: **Overview**, **Key Concepts**, **Key Insights**, **Sources**, **Related Topics** — not Recent Changes / Known Issues.
+
+---
+
 ## What You See After Running
 
 ### `raw/` — Raw event backups
@@ -258,4 +316,35 @@ mcp_server.py  (FastMCP stdio)
     │  MCP protocol (JSON-RPC over stdio)
     ▼
 Claude Code
+
+---
+
+## Knowledge Base Data Flow
+
+```
+Obsidian vault  (local Mac only — KNOWLEDGE_BASE_PATH)
+    wiki/concepts/*.md
+    wiki/summaries/*.md
+         │
+         │  MD5 gate → similarity gate (>85% skip)
+         ▼
+knowledge_base_scanner.py
+         │
+         │  push_event("knowledge_base", "note", {content, title, wiki_category, …})
+         ▼
+db/shadow.db  events (source=knowledge_base)
+         │
+         ▼
+worker.py  _handle_knowledge_event()
+         │
+         ├──► KNOWLEDGE_CLASSIFY  → paths like knowledge/concepts/rag
+         ├──► KNOWLEDGE_SUMMARIZE → {insights, key_concepts, tags}
+         │
+         ├── module_exists?
+         │     NO  → KNOWLEDGE_CREATE_PAGE → wiki/knowledge/…/slug.md
+         │     YES → filter duplicate insights → KNOWLEDGE_APPEND → ## Key Insights
+         │
+         └──► update_fts()
+
+wiki/knowledge/*.md  →  MCP search_wiki / Claude Code
 ```

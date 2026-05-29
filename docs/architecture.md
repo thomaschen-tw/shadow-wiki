@@ -8,14 +8,15 @@
 │                                                                       │
 │  GitHub PR/Review   Slack Messages   Linear Tickets   Local Files     │
 │  (webhook :9000)    (Socket Mode)    (GraphQL poll)   (MD5 scan)      │
-└────────┬───────────────┬─────────────────┬────────────────┬───────────┘
-         │               │                 │                │
-         ▼               ▼                 ▼                ▼
+│  Obsidian vault wiki/  (KNOWLEDGE_BASE_PATH — local Mac, daily GHA)   │
+└────────┬───────────────┬─────────────────┬────────────────┬──────┬────┘
+         │               │                 │                │      │
+         ▼               ▼                 ▼                ▼      ▼
 ┌───────────────────────────────────────────────────────────────────────┐
 │                       INGESTION LAYER                                 │
 │  github_connector.py  slack_connector.py  linear_connector.py        │
 │  ingest_diff.py (CLI + AST syntax validation gate)                   │
-│  local_scanner.py                                                     │
+│  local_scanner.py          knowledge_base_scanner.py (MD5 + similarity)│
 └─────────────────────────────┬─────────────────────────────────────────┘
                                │  push_event()
                                ▼
@@ -32,6 +33,8 @@
 ┌───────────────────────────────────────────────────────────────────────┐
 │                   DISTILLATION WORKER  worker.py                      │
 │                                                                       │
+│  Dispatch: source=knowledge_base → knowledge prompts + wiki/knowledge/ │
+│            else → code prompts + wiki/{module}/                        │
 │  1. CLASSIFY  → which modules affected?                               │
 │  2. SUMMARIZE → structured change summary                             │
 │  3. For each module:                                                  │
@@ -84,6 +87,7 @@ flowchart TD
         SL["Slack\n(Socket Mode)"]
         LI["Linear\n(GraphQL poll)"]
         FS["Local Files\n(MD5 scan)"]
+        KB["Obsidian vault\nwiki/"]
         CLI["Manual Diff\n(CLI)"]
     end
 
@@ -92,6 +96,7 @@ flowchart TD
         SL_C["slack_connector.py"]
         LI_C["linear_connector.py"]
         LS_C["local_scanner.py"]
+        KB_C["knowledge_base_scanner.py"]
         ID["ingest_diff.py\n+ AST validation"]
     end
 
@@ -119,9 +124,10 @@ flowchart TD
     SL --> SL_C
     LI --> LI_C
     FS --> LS_C
+    KB --> KB_C
     CLI --> ID
 
-    GH_C & SL_C & LI_C & LS_C & ID --> DB
+    GH_C & SL_C & LI_C & LS_C & KB_C & ID --> DB
 
     DB -->|pending events| W
     W -->|classify/summarize/append| LOCAL
