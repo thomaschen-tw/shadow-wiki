@@ -10,6 +10,7 @@ Commands:
   cloud on|off      Toggle USE_CLOUD_LLM (on=cloud for new pages, off=all local)
   dev               Dev mode: pause Docker containers, unload local model from RAM
   compile           Compile mode: resume Docker containers, load local model into RAM
+  llm               Show which models .env selects vs what LM Studio/Ollama expose
 """
 import re
 import subprocess
@@ -67,8 +68,8 @@ def cmd_db(state: str) -> None:
         sys.exit(1)
     value = "true" if state == "on" else "false"
     _update_env_key("USE_LOCAL_DB", value)
-    import scripts.config as cfg
-    cfg._settings = None
+    from scripts.config import reload_settings
+    reload_settings()
     if state == "on":
         db_path = get_settings().db_path
         print(f"Local DB enabled  →  {db_path}")
@@ -101,36 +102,123 @@ def cmd_cloud(state: str) -> None:
         sys.exit(1)
     value = "true" if state == "on" else "false"
     _update_env_key("USE_CLOUD_LLM", value)
-    import scripts.config as cfg
-    cfg._settings = None
+    from scripts.config import reload_settings
+    reload_settings()
     label = "enabled" if state == "on" else "disabled"
     print(f"Cloud LLM {label}  (USE_CLOUD_LLM={value})")
 
 
-# ── Ollama model memory management ────────────────────────────────────────────
+# ── Local model memory (Ollama keep_alive / LM Studio warm-up) ─────────────────
 
-def _local_model_name() -> str:
+def _toggle_ollama(model: str, action: str) -> None:
+    keep_alive = -1 if action == "load" else 0
+    payload = {"model": model, "messages": [], "keep_alive": keep_alive}
+    try:
+        resp = httpx.post("http://localhost:11434/api/chat", json=payload, timeout=30)
+        if resp.status_code == 200:
+            state = "loaded" if keep_alive == -1 else "released"
+            print(f"Ollama: model '{model}' {state}.")
+        else:
+            print(f"Ollama returned HTTP {resp.status_code}: {resp.text[:200]}")
+    except Exception as exc:
+        print(f"Could not reach Ollama: {exc}")
+
+
+def _toggle_lmstudio(model: str, action: str) -> None:
     s = get_settings()
-    return s.ollama_model if s.local_llm_backend.value == "ollama" else s.lmstudio_model
+    if action == "unload":
+        print(
+            f"LM Studio: unload '{model}' in the LM Studio UI "
+            "(no unload API). dev mode frees RAM when the model is ejected there."
+        )
+        return
+    try:
+        resp = httpx.post(
+            f"{s.lmstudio_base_url}/chat/completions",
+            json={
+                "model": model,
+                "messages": [{"role": "user", "content": "ping"}],
+                "max_tokens": 1,
+            },
+            timeout=s.llm_timeout,
+        )
+        if resp.status_code == 200:
+            print(f"LM Studio: warmed model '{model}' (chat/completions OK).")
+        else:
+            print(f"LM Studio HTTP {resp.status_code}: {resp.text[:300]}")
+    except Exception as exc:
+        print(f"Could not reach LM Studio: {exc}")
 
 
 def toggle_local_llm(action: str) -> None:
-    model = _local_model_name()
-    keep_alive = -1 if action == "load" else 0
-    payload = {
-        "model": model,
-        "messages": [],
-        "keep_alive": keep_alive,
-    }
+    from scripts.distill.llm_router import get_active_local_model
+
+    backend, model = get_active_local_model()
+    print(f"Using {backend.value} → {model}")
+    if backend.value == "ollama":
+        _toggle_ollama(model, action)
+    else:
+        _toggle_lmstudio(model, action)
+
+
+def _fetch_model_ids(base_url: str, api_key: str = "") -> list[str]:
     try:
-        resp = httpx.post("http://localhost:11434/api/chat", json=payload, timeout=5)
-        if resp.status_code == 200:
-            state = "loaded" if keep_alive == -1 else "released"
-            print(f"Model '{model}' {state} in Apple Unified Memory.")
-        else:
-            print(f"Ollama returned HTTP {resp.status_code}")
-    except Exception as exc:
-        print(f"Could not reach Ollama: {exc}")
+        headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+        resp = httpx.get(f"{base_url.rstrip('/')}/models", headers=headers, timeout=5)
+        resp.raise_for_status()
+        data = resp.json()
+        return [m["id"] for m in data.get("data", []) if m.get("id")]
+    except Exception:
+        return []
+
+
+def cmd_llm() -> None:
+    from scripts.distill.llm_router import get_active_local_backend, get_active_local_model
+
+    s = get_settings()
+    active_backend, active_model = get_active_local_model()
+
+    print("Configured models (.env)")
+    print(f"  LOCAL_LLM_BACKEND     = {s.local_llm_backend.value}")
+    print(f"  LMSTUDIO_MODEL        = {s.lmstudio_model}")
+    print(f"  OLLAMA_MODEL          = {s.ollama_model}")
+    print(f"  USE_CLOUD_LLM         = {str(s.use_cloud_llm).lower()}")
+    print(f"  CLOUD_LLM_BACKEND     = {s.cloud_llm_backend.value}")
+    if s.cloud_llm_backend.value == "qwen_cloud":
+        print(f"  QWEN_CLOUD_MODEL      = {s.qwen_cloud_model}")
+    elif s.cloud_llm_backend.value == "claude":
+        print(f"  CLAUDE_MODEL          = {s.claude_model}")
+    else:
+        print(f"  DEEPSEEK_MODEL        = {s.deepseek_model}")
+
+    print("\nPipeline will use for local tasks (classify/summarize/append)")
+    print(f"  → {active_backend.value} / {active_model}")
+
+    lm_models = _fetch_model_ids(s.lmstudio_base_url)
+    if lm_models:
+        mark = "✓" if s.lmstudio_model in lm_models else "✗ NOT IN LIST"
+        print(f"\nLM Studio /models ({len(lm_models)} loaded)")
+        print(f"  {s.lmstudio_model}  {mark}")
+        if s.lmstudio_model not in lm_models:
+            print(f"  Available: {', '.join(lm_models[:8])}")
+            print("  Fix: set LMSTUDIO_MODEL to an id above (exact string from LM Studio).")
+    else:
+        print("\nLM Studio: not reachable or no models loaded")
+
+    ol_models = _fetch_model_ids(s.ollama_base_url, "ollama")
+    if ol_models:
+        mark = "✓" if s.ollama_model in ol_models else "✗ NOT IN LIST"
+        print(f"\nOllama /models ({len(ol_models)} available)")
+        print(f"  {s.ollama_model}  {mark}")
+    else:
+        print("\nOllama: not reachable")
+
+    if active_backend.value == "lmstudio" and s.ollama_model != s.lmstudio_model:
+        print(
+            f"\nNote: OLLAMA_MODEL ({s.ollama_model}) is ignored while "
+            f"LOCAL_LLM_BACKEND={s.local_llm_backend.value} resolves to lmstudio."
+        )
+    print("\nRestart worker after changing .env: kill worker → uv run python scripts/distill/worker.py")
 
 
 # ── Docker helpers ─────────────────────────────────────────────────────────────
@@ -181,6 +269,8 @@ def main() -> None:
         cmd_dev()
     elif cmd == "compile":
         cmd_compile()
+    elif cmd == "llm":
+        cmd_llm()
     else:
         print(f"Unknown command: {cmd}\n{__doc__}")
         sys.exit(1)

@@ -29,11 +29,19 @@ def test_override_cloud_backend_from_env(monkeypatch):
     assert s.cloud_llm_backend == CloudBackend.DEEPSEEK
 
 
-def test_lmstudio_defaults():
+def test_lmstudio_defaults_without_env():
     from scripts.config import Settings
     s = Settings(_env_file=None)
     assert s.lmstudio_base_url == "http://localhost:1234/v1"
-    assert s.lmstudio_model == "qwen3-35b"
+    # Model ids come from .env in production; empty when unset
+    assert s.lmstudio_model == ""
+
+
+def test_lmstudio_model_loaded_from_env(monkeypatch):
+    monkeypatch.setenv("LMSTUDIO_MODEL", "qwen/qwen3.6-27b")
+    from scripts.config import Settings
+    s = Settings(_env_file=None)
+    assert s.lmstudio_model == "qwen/qwen3.6-27b"
 
 
 def test_get_settings_singleton(monkeypatch):

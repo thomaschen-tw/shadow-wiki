@@ -90,17 +90,33 @@ def _detect_local_backend() -> LocalBackend:
     )
 
 
+def get_active_local_backend() -> LocalBackend:
+    s = get_settings()
+    if s.local_llm_backend == LocalBackend.AUTO:
+        return _detect_local_backend()
+    return s.local_llm_backend
+
+
+def get_active_local_model() -> tuple[LocalBackend, str]:
+    """Backend and model id used for the next local LLM call."""
+    s = get_settings()
+    backend = get_active_local_backend()
+    model = s.ollama_model if backend == LocalBackend.OLLAMA else s.lmstudio_model
+    return backend, model
+
+
 def _call_local(prompt: str, system: str) -> str:
     s = get_settings()
-    backend = _detect_local_backend() if s.local_llm_backend == LocalBackend.AUTO else s.local_llm_backend
+    backend, model = get_active_local_model()
     extra = {"enable_thinking": s.enable_thinking}
+    logger.info("Local LLM call  backend=%s  model=%s", backend.value, model)
     if backend == LocalBackend.LMSTUDIO:
         return _call_openai_compatible(
-            base_url=s.lmstudio_base_url, api_key="", model=s.lmstudio_model,
+            base_url=s.lmstudio_base_url, api_key="", model=model,
             prompt=prompt, system=system, extra_body=extra,
         )
     return _call_openai_compatible(
-        base_url=s.ollama_base_url, api_key="ollama", model=s.ollama_model,
+        base_url=s.ollama_base_url, api_key="ollama", model=model,
         prompt=prompt, system=system, extra_body=extra,
     )
 
@@ -120,12 +136,29 @@ def _call_cloud(prompt: str, system: str) -> str:
     )
 
 
+def _cloud_model_name() -> str:
+    s = get_settings()
+    if s.cloud_llm_backend == CloudBackend.CLAUDE:
+        return s.claude_model
+    if s.cloud_llm_backend == CloudBackend.QWEN_CLOUD:
+        return s.qwen_cloud_model
+    return s.deepseek_model
+
+
 def call_llm(
     task_type: TaskType,
     prompt: str,
     system: str = "You are a helpful assistant.",
 ) -> str:
+    s = get_settings()
     # When USE_CLOUD_LLM=false all tasks run locally (no cloud API calls)
-    if not get_settings().use_cloud_llm or task_type in _LOCAL_TASKS:
+    if not s.use_cloud_llm or task_type in _LOCAL_TASKS:
         return _call_local(prompt, system)
+    model = _cloud_model_name()
+    logger.info(
+        "Cloud LLM call  task=%s  backend=%s  model=%s",
+        task_type.value,
+        s.cloud_llm_backend.value,
+        model,
+    )
     return _call_cloud(prompt, system)

@@ -50,7 +50,7 @@ GITHUB_WEBHOOK_SECRET=a3f8d2e1c4b7906543210fedcba98765432109
 uv run python scripts/ingest/github_connector.py
 ```
 
-This starts a Flask server on port **9000**. Keep it running.
+This starts a **FastAPI** server (Uvicorn) on port **9000**. Keep it running.
 
 ### Step 4 — Expose Port 9000 (local dev only)
 

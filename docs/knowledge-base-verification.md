@@ -83,11 +83,11 @@ if events:
 "
 ```
 
-**要求：** LM Studio / Ollama 已启动，且模型能载入内存（本机 35B 约需 ~22GB）。
+**要求：** LM Studio / Ollama 已启动，且 `LMSTUDIO_MODEL` 与 `/v1/models` 列表一致（`uv run python scripts/resource_mgr.py llm`）。
 
 ### 方式 B — 本地 OOM 时用 Qwen Cloud（本次实际采用）
 
-**现象：** LM Studio 返回 HTTP 400，`Model loading was stopped due to insufficient system resources`（`qwen3.6-35b-a3b` 约 21.73GB）。
+**现象：** LM Studio 返回 HTTP 400，`Model loading was stopped due to insufficient system resources`（模型过大，如 35B 约需 ~22GB）。改用 27B 或 `QWEN_CLOUD_MODEL=qwen-plus` + `--cloud`。
 
 **说明：** 默认路由下 `CLASSIFY` / `SUMMARIZE` / `APPEND` 始终走本地；`USE_CLOUD_LLM=true` 仅影响 `CREATE_PAGE`。本地不可用时，验证脚本可临时把 `worker.call_llm` 指到云端（仅用于手工验证，非产品默认行为）：
 
@@ -233,6 +233,12 @@ MCP search_wiki / Claude Code
 - [x] 二次扫描：0 入队 / 18 unchanged
 - [ ] 剩余 17 条 pending（需本地 LLM 可用或批量云端验证脚本）
 - [ ] GitHub Actions self-hosted runner（按需）
+
+---
+
+## 开发一键脚本
+
+不修改 `demo.sh` 的前提下，用 **`bash dev_up.sh`** 做环境检查 + 单条内联 distill；知识库用 **`bash dev_up.sh --knowledge`**（可选 `--cloud`）。详见脚本内 `bash dev_up.sh --help`。
 
 ---
 

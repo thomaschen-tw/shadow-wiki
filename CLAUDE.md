@@ -18,6 +18,8 @@ uv run python scripts/mcp_server.py                 # MCP server (stdio, for Cla
 
 Or just: `bash demo.sh`
 
+Debug / study (single-event inline, won't drain the queue): `bash dev_up.sh` · `bash dev_up.sh --help`
+
 ## Architecture
 
 ```
@@ -45,7 +47,7 @@ Or just: `bash demo.sh`
 | `scripts/mcp_server.py` | FastMCP stdio server — 6 tools |
 | `scripts/ingest/knowledge_base_scanner.py` | Scan Obsidian vault `wiki/` → `source=knowledge_base` events |
 | `scripts/ingest_diff.py` | CLI: push a diff manually (with AST validation) |
-| `scripts/resource_mgr.py` | CLI: init / status / list / cloud / db / dev / compile |
+| `scripts/resource_mgr.py` | CLI: init / status / list / cloud / db / dev / compile / llm |
 | `test_env.py` | Environment checker — connectivity + credential validation |
 
 ## Toggle Commands
@@ -59,14 +61,16 @@ uv run python scripts/resource_mgr.py compile       # load model + resume Docker
 
 ## Switching LLM Backends
 
-Edit `.env` only — zero code changes needed:
+Edit **`.env` only** — `scripts/config.py` reads env vars automatically (`LMSTUDIO_MODEL` → `lmstudio_model`). Do not edit Python defaults when changing models.
 
 ```env
 LOCAL_LLM_BACKEND=auto         # auto (default) | lmstudio | ollama
 CLOUD_LLM_BACKEND=qwen_cloud   # claude | qwen_cloud | deepseek
 USE_CLOUD_LLM=false            # false = all local; true = cloud for new pages
-LMSTUDIO_MODEL=qwen/qwen3-8b   # must match name shown in LM Studio
+LMSTUDIO_MODEL=qwen/qwen3.6-27b  # must match id from LM Studio /v1/models
 ```
+
+Verify: `uv run python scripts/resource_mgr.py llm` · reload worker after changes.
 
 `auto` probes LM Studio (`localhost:1234`) first, then Ollama (`localhost:11434`).
 
@@ -88,7 +92,7 @@ Add to `~/.claude/claude.json`:
 ## Running Tests
 
 ```bash
-uv run pytest -v    # 48 tests
+uv run pytest -v    # 49 tests
 ```
 
 ## Knowledge Base (Obsidian daily digest)

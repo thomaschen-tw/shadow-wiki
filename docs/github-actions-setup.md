@@ -63,7 +63,7 @@ KNOWLEDGE_BASE_SIMILARITY_THRESHOLD=0.85
 
 # Cloud LLM key (used when USE_CLOUD_LLM=true in the workflow)
 DASHSCOPE_API_KEY=sk-...
-QWEN_CLOUD_MODEL=qwen3.6-35b-a3b
+QWEN_CLOUD_MODEL=qwen-plus
 CLOUD_LLM_BACKEND=qwen_cloud
 ```
 

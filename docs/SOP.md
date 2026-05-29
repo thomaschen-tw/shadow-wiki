@@ -27,7 +27,7 @@
 | Python | 3.12 | pinned via `.python-version`; `uv` downloads it automatically |
 | uv | latest | `pip install uv` or `brew install uv` |
 | LM Studio **or** Ollama | latest | local LLM backend |
-| Qwen 3 35B model | any quant | loaded in LM Studio or pulled in Ollama |
+| Qwen 3 model (e.g. 27B) | any quant | loaded in LM Studio or pulled in Ollama |
 | Git | any | for the project itself |
 | GitHub repo (optional) | — | for webhook ingestion |
 | Slack workspace (optional) | — | Bot + App tokens needed |
@@ -73,7 +73,7 @@ Modules : 0
 
 ## 3. Configuration
 
-All configuration lives in `.env`. Never commit this file — it is gitignored.
+All configuration lives in **`.env`** (never commit it — gitignored). `scripts/config.py` loads each variable automatically (`LMSTUDIO_MODEL` → `lmstudio_model`, etc.). Change models and API keys in `.env` only; restart the worker after edits. Verify with `uv run python scripts/resource_mgr.py llm`.
 
 ### 3.1 LLM Backend Selection
 
@@ -93,16 +93,16 @@ CLOUD_LLM_BACKEND=claude        # claude (default) | qwen_cloud | deepseek
 **LM Studio (default):**
 ```env
 LMSTUDIO_BASE_URL=http://localhost:1234/v1
-LMSTUDIO_MODEL=qwen3-35b        # match the model name shown in LM Studio
+LMSTUDIO_MODEL=qwen/qwen3.6-27b # exact id from GET http://localhost:1234/v1/models
 ```
 Start the LM Studio server before launching the worker. The default port is 1234.
 
 **Ollama (alternative):**
 ```env
 OLLAMA_BASE_URL=http://localhost:11434/v1
-OLLAMA_MODEL=qwen3:35b
+OLLAMA_MODEL=qwen3.6:27b
 ```
-Pull the model first: `ollama pull qwen3:35b`
+Pull the model first: `ollama pull qwen3.6:27b`
 
 ### 3.3 Cloud LLM
 
@@ -260,7 +260,7 @@ Each component runs as a separate process. Start them in order:
 
 ### Step 1 — Ensure local LLM is running
 
-**LM Studio:** Open LM Studio → load Qwen 3 35B → click **Start Server**. Verify: `curl http://localhost:1234/v1/models`
+**LM Studio:** Open LM Studio → load your model (e.g. Qwen3.6-27B) → **Start Server**. Verify: `uv run python scripts/resource_mgr.py llm`
 
 **Ollama:** `ollama serve` (usually starts automatically).
 
@@ -601,8 +601,10 @@ shadow-wiki/
 │   │   └── manager.py          ← read/write Obsidian .md files
 │   ├── mcp_server.py           ← FastMCP stdio server
 │   ├── ingest_diff.py          ← CLI: push diff manually
-│   └── resource_mgr.py         ← CLI: init / status / list
-└── tests/                      ← 47 tests (uv run pytest)
+│   └── resource_mgr.py         ← CLI: init / status / list / cloud / db / dev / compile / llm
+├── demo.sh                     ← MVP one-shot demo
+├── dev_up.sh                   ← debug bring-up (single-event; see README)
+└── tests/                      ← 49 tests (uv run pytest)
     ├── conftest.py             ← tmp_db fixture (isolates DB per test)
     ├── test_config.py
     ├── test_db.py
@@ -633,10 +635,13 @@ python scripts/resource_mgr.py init
 
 ### LLM call fails: `Model not found`
 
-The `LMSTUDIO_MODEL` / `OLLAMA_MODEL` value must exactly match the model name as it appears in LM Studio / Ollama. Check:
+The `LMSTUDIO_MODEL` / `OLLAMA_MODEL` value must exactly match the model id from the server. Check:
 ```bash
-curl http://localhost:1234/v1/models | python -m json.tool | grep '"id"'
+uv run python scripts/resource_mgr.py llm
+# or: curl http://localhost:1234/v1/models | python -m json.tool | grep '"id"'
 ```
+
+`dev` / `compile` use **Ollama keep_alive** when `LOCAL_LLM_BACKEND=ollama`, and **LM Studio chat warm-up** when `lmstudio` or `auto` resolves to LM Studio. They no longer send `LMSTUDIO_MODEL` to the Ollama API.
 
 ### FTS search returns no results
 

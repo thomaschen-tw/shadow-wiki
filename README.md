@@ -85,6 +85,33 @@ uv run python test_env.py
 # 3. Initialise and run
 uv run python scripts/resource_mgr.py init   # create SQLite database
 bash demo.sh                                 # worker → push test diff → show output
+# Or for debugging (single event, won't drain the queue): bash dev_up.sh
+```
+
+### Development & debugging (`dev_up.sh`)
+
+Unlike `demo.sh`, `dev_up.sh` runs `test_env.py`, processes **one** event inline by default (safe when you have many pending knowledge-base events), and leaves the worker off unless you opt in.
+
+```bash
+# Code path: queue one test diff → distill only that event
+bash dev_up.sh
+
+# Local model OOM — use cloud for that single distill
+bash dev_up.sh --cloud
+
+# Knowledge base: scan vault → distill oldest pending KB note
+bash dev_up.sh --knowledge
+
+# Knowledge: distill existing pending only (no scanner pass)
+bash dev_up.sh --knowledge --no-scan
+
+# Start background worker after setup (processes full queue — use with care)
+bash dev_up.sh --daemon
+
+# Init DB + background worker only
+bash dev_up.sh --worker-only
+
+bash dev_up.sh --help
 ```
 
 **Manual step-by-step:**
@@ -118,7 +145,14 @@ Then ask Claude Code: `search_wiki("redis session")` or `get_module("auth/sessio
 
 ## Configuration
 
-All settings live in `.env`. Copy `.env.example` to get started.
+**Single source of truth: `.env`** — `scripts/config.py` loads every field via [pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/). For example, `LMSTUDIO_MODEL=qwen/qwen3.6-27b` in `.env` becomes `get_settings().lmstudio_model`; you do not need to change Python when switching models. Copy `.env.example` to get started.
+
+```bash
+# After editing .env — confirm ids match LM Studio / Ollama
+uv run python scripts/resource_mgr.py llm
+```
+
+Restart `worker.py` (and Claude Code MCP) after changing model names. `resource_mgr.py cloud|db` rewrites `.env` and calls `reload_settings()` automatically.
 
 ### LLM Backends
 
@@ -143,6 +177,7 @@ uv run python scripts/resource_mgr.py db on      # local SQLite (default)
 uv run python scripts/resource_mgr.py db off     # switch to DATABASE_URL
 uv run python scripts/resource_mgr.py dev        # free RAM + pause Docker
 uv run python scripts/resource_mgr.py compile    # load model + resume Docker
+uv run python scripts/resource_mgr.py llm      # show .env models vs LM Studio/Ollama
 ```
 
 ### Data Sources
@@ -190,7 +225,7 @@ shadow-wiki/
 │   │   ├── prompts.py          ← system prompts for each task type
 │   │   └── worker.py           ← event consumption loop (run as daemon)
 │   ├── ingest/
-│   │   ├── github_connector.py ← Flask webhook server (port 9000)
+│   │   ├── github_connector.py ← FastAPI webhook server (port 9000)
 │   │   ├── slack_connector.py  ← Slack Socket Mode listener
 │   │   ├── linear_connector.py ← Linear GraphQL poller (every 5 min)
 │   │   ├── local_scanner.py    ← MD5-based file change detector
@@ -208,6 +243,7 @@ shadow-wiki/
 │   ├── github-setup.md         ← step-by-step GitHub webhook setup
 │   └── github-actions-setup.md ← self-hosted runner for daily knowledge digest
 ├── demo.sh                     ← one-command MVP demo
+├── dev_up.sh                   ← debug bring-up (single-event, test_env, optional --cloud)
 ├── test_env.py                 ← environment checker (connectivity + credentials)
 ├── .env.example                ← config template
 └── pyproject.toml              ← uv project file, Python 3.12, deps
@@ -221,7 +257,7 @@ shadow-wiki/
 uv run pytest -v
 ```
 
-48 tests covering config loading, SQLite operations, FTS5 search, wiki manager, LLM routing, all connectors, MCP tools, and an end-to-end integration test.
+49 tests covering config loading, SQLite operations, FTS5 search, wiki manager, LLM routing, all connectors, MCP tools, and an end-to-end integration test.
 
 ---
 
@@ -236,6 +272,8 @@ uv run pytest -v
 | [docs/github-actions-setup.md](docs/github-actions-setup.md) | Self-hosted runner, daily Obsidian knowledge digest |
 | [docs/knowledge-base-verification.md](docs/knowledge-base-verification.md) | End-to-end verification checklist (scan → distill → dedup) |
 
+**Scripts:** `demo.sh` (MVP demo) · `dev_up.sh` (debug, single-event) — see [Development & debugging](#development--debugging-dev_upsh) above.
+
 ---
 
 ## Tech Stack
@@ -246,6 +284,6 @@ uv run pytest -v
 - **pydantic-settings** — `.env`-driven configuration
 - **openai SDK** — OpenAI-compatible client for LM Studio, Ollama, Qwen Cloud, DeepSeek
 - **anthropic SDK** — Claude API
-- **Flask** — GitHub webhook receiver
+- **FastAPI + Uvicorn** — GitHub webhook receiver
 - **slack-sdk** — Slack Socket Mode
 - **python-frontmatter** — Obsidian YAML frontmatter read/write

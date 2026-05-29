@@ -88,7 +88,8 @@ for pkg in [
     ("openai",    "openai"),
     ("anthropic", "anthropic"),
     ("httpx",     "httpx"),
-    ("flask",     "flask"),
+    ("fastapi",   "fastapi"),
+    ("uvicorn",   "uvicorn"),
 ]:
     mod, label = pkg
     try:
@@ -121,6 +122,12 @@ if s.use_cloud_llm:
     info("USE_CLOUD_LLM=true  → cloud used for new wiki pages")
 else:
     info("USE_CLOUD_LLM=false → all tasks run on local LLM")
+
+info(
+    f"Model ids in .env: LMSTUDIO_MODEL={s.lmstudio_model!r}  "
+    f"OLLAMA_MODEL={s.ollama_model!r}  QWEN_CLOUD_MODEL={s.qwen_cloud_model!r}"
+)
+info("Run: uv run python scripts/resource_mgr.py llm  — compare .env vs loaded models")
 
 if s.use_local_db:
     info(f"USE_LOCAL_DB=true   → SQLite at {s.db_path}")
