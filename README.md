@@ -234,6 +234,7 @@ uv run pytest -v
 | [docs/architecture.md](docs/architecture.md) | ASCII + Mermaid component diagrams |
 | [docs/github-setup.md](docs/github-setup.md) | GitHub token, poller vs webhook, ngrok for realtime |
 | [docs/github-actions-setup.md](docs/github-actions-setup.md) | Self-hosted runner, daily Obsidian knowledge digest |
+| [docs/knowledge-base-verification.md](docs/knowledge-base-verification.md) | End-to-end verification checklist (scan → distill → dedup) |
 
 ---
 
