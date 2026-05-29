@@ -244,7 +244,8 @@ MCP search_wiki / Claude Code
 
 ## 相关文档
 
-- 实现计划笔记：[docs/1.md](1.md)
+- 架构演进 backlog：[architecture-roadmap.md](architecture-roadmap.md)
+- Demo 录制脚本：[DEMO.md](DEMO.md)
 - 运维 SOP §4.5：[SOP.md](SOP.md)
 - 时序图：[workflow.md](workflow.md)
 - Runner 安装：[github-actions-setup.md](github-actions-setup.md)

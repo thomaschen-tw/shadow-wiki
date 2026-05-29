@@ -40,9 +40,11 @@ logs/
 .DS_Store
 .AppleDouble
 
-# ── Obsidian workspace state (personal, not project config) ───────────────────
-.obsidian/workspace.json
-.obsidian/workspace-mobile.json
+# ── Obsidian local vault UI state (not project source) ────────────────────────
+.obsidian/
+
+# ── IDE / editor local state ──────────────────────────────────────────────────
+.cursor/
 
 # ── wiki/ contains LLM-generated output — commit intentionally as living docs ─
-# (not gitignored — add/commit wiki/*.md to share the knowledge base)
+# (not gitignored — commit wiki/*.md for demo samples and shared knowledge)

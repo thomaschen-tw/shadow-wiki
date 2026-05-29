@@ -107,6 +107,8 @@ uv run python scripts/ingest/knowledge_base_scanner.py --once        # queue eve
 
 Daily automation: `.github/workflows/daily-knowledge-digest.yml` on a self-hosted Mac runner — see `docs/github-actions-setup.md`.
 
+Demo video script: `docs/DEMO.md` · Doc index: `docs/README.md`
+
 ## Manual End-to-End Test
 
 ```bash

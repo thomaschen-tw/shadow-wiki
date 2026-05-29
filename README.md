@@ -263,14 +263,18 @@ uv run pytest -v
 
 ## Docs
 
+Full index: **[docs/README.md](docs/README.md)**
+
 | Document | Contents |
 |---|---|
 | [docs/SOP.md](docs/SOP.md) | Full setup, configuration, operations, troubleshooting |
 | [docs/workflow.md](docs/workflow.md) | Execution sequence diagram, what appears in `raw/` and `wiki/` |
 | [docs/architecture.md](docs/architecture.md) | ASCII + Mermaid component diagrams |
+| [docs/architecture-roadmap.md](docs/architecture-roadmap.md) | Production gaps & P0/P1/P2 backlog |
+| [docs/DEMO.md](docs/DEMO.md) | Hackathon / video demo script & pre-flight |
 | [docs/github-setup.md](docs/github-setup.md) | GitHub token, poller vs webhook, ngrok for realtime |
 | [docs/github-actions-setup.md](docs/github-actions-setup.md) | Self-hosted runner, daily Obsidian knowledge digest |
-| [docs/knowledge-base-verification.md](docs/knowledge-base-verification.md) | End-to-end verification checklist (scan → distill → dedup) |
+| [docs/knowledge-base-verification.md](docs/knowledge-base-verification.md) | E2E checklist (scan → distill → dedup) |
 
 **Scripts:** `demo.sh` (MVP demo) · `dev_up.sh` (debug, single-event) — see [Development & debugging](#development--debugging-dev_upsh) above.
 
