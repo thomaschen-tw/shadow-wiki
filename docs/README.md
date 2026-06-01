@@ -1,4 +1,4 @@
-# Shadow Wiki — Documentation Index
+# PulseWiki — Documentation Index
 
 | Document | Audience | Contents |
 |----------|----------|----------|
@@ -10,6 +10,6 @@
 | [github-setup.md](github-setup.md) | GitHub ingest | Token, poller vs webhook, ngrok |
 | [github-actions-setup.md](github-actions-setup.md) | CI / Mac runner | Daily knowledge digest workflow |
 | [knowledge-base-verification.md](knowledge-base-verification.md) | QA | E2E checklist for Obsidian `wiki/` scanner |
-| [DEMO.md](DEMO.md) | Hackathon / video | 5-minute demo script and pre-flight checks |
+| [DEMO.md](DEMO.md) | Hackathon / video | **录屏流程文件**：问题陈述、分镜、每步命令与预期效果 |
 
 **Scripts (repo root):** `demo.sh` (MVP) · `dev_up.sh` (single-event debug) · `test_env.py` (connectivity)

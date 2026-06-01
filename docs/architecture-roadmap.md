@@ -1,4 +1,4 @@
-# Shadow Wiki — 架构缺口清单与演进路线图
+# PulseWiki — 架构缺口清单与演进路线图
 
 > **文档性质：** 首席架构师评审（DevOps / KM / LLM Ops / MCP）  
 > **评审基准：** 当前代码库（`worker.py`、`db.py`、`llm_router.py`、`mcp_server.py`、ingest 连接器、knowledge_base 流水线）+ 原「Knowledge Base Daily Digest」实现计划  
@@ -21,7 +21,7 @@
 | Task 7 README / SOP / workflow 文档 | ✅ 已落地 | 另增 `dev_up.sh`、`knowledge-base-verification.md` |
 | **原计划未覆盖的企业级能力** | ❌ 未做 | 下文 P0–P2 即为与原计划的差分 |
 
-**结论：** 原计划把 Shadow Wiki 从「仅代码事件」扩展到「个人知识库摄入」，完成度良好；但原计划 **刻意声明不改动** `db.py` 核心语义、**未设计** 多 worker、重试、向量检索、权限与可观测性——这些正是从「本地玩具」到「团队生产工具」的鸿沟。本文件取代原聊天式计划稿，作为 **架构债与演进 backlog** 的单一事实来源。
+**结论：** 原计划把 PulseWiki 从「仅代码事件」扩展到「个人知识库摄入」，完成度良好；但原计划 **刻意声明不改动** `db.py` 核心语义、**未设计** 多 worker、重试、向量检索、权限与可观测性——这些正是从「本地玩具」到「团队生产工具」的鸿沟。本文件取代原聊天式计划稿，作为 **架构债与演进 backlog** 的单一事实来源。
 
 ---
 
@@ -190,7 +190,7 @@ Worker 重试会导致 **重复 bullet**（除非人工 diff）。Knowledge 的 
 #### 【混合检索 Hybrid Search（FTS5 + 向量）】
 
 **架构痛点分析：**  
-`search_modules_fts` 仅 trigram FTS。「会话超时」「哪里 revoke token」类 **语义问法** 召回率极差；中文/中英混合更惨。Claude Code 会以为 wiki 没内容，然后 **退回全仓库 grep**——Shadow Wiki 价值归零。
+`search_modules_fts` 仅 trigram FTS。「会话超时」「哪里 revoke token」类 **语义问法** 召回率极差；中文/中英混合更惨。Claude Code 会以为 wiki 没内容，然后 **退回全仓库 grep**——PulseWiki 价值归零。
 
 **推荐的生产级实现方案：**  
 - 本地轻量：**sqlite-vec** / LanceDB embedded / Chroma persistent；chunk 级（按 `##` 分段）embedding。  
@@ -282,19 +282,19 @@ Slack 全频道、Linear 全团队、GitHub 全 repo 进同一 wiki — **#finan
 #### 【多租户 / 命名空间（Tenant Namespace）】
 
 **架构痛点分析：**  
-单 flat `wiki/{module}.md` 无法服务多团队共用一套 Shadow Wiki 实例。
+单 flat `wiki/{module}.md` 无法服务多团队共用一套 PulseWiki 实例。
 
 **推荐的生产级实现方案：**  
 - `wiki/{team}/{module}.md` + event 表 `tenant_id`。  
 - MCP 请求带 `tenant` context（HTTP header）。
 
-#### 【Obsidian 与 shadow-wiki 目录边界】
+#### 【Obsidian 与 pulse-wiki 目录边界】
 
 **架构痛点分析：**  
 `KNOWLEDGE_BASE_PATH` 读个人 vault，`WIKI_DIR` 写 repo 内 wiki — **两套宇宙**。团队不清楚哪个是 SSOT。
 
 **推荐的生产级实现方案：**  
-- 文档与架构图明确：**产出 SSOT = git 管理的 `shadow-wiki/wiki/`**；vault 只作输入。  
+- 文档与架构图明确：**产出 SSOT = git 管理的 `pulse-wiki/wiki/`**；vault 只作输入。  
 - 可选单向 sync 脚本，禁止双向自动写 vault。
 
 ---

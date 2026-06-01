@@ -1,4 +1,4 @@
-# Shadow Wiki
+# PulseWiki
 
 > Full SOP: **[docs/SOP.md](docs/SOP.md)** · Architecture: **[docs/architecture.md](docs/architecture.md)** · GitHub setup: **[docs/github-setup.md](docs/github-setup.md)**
 
@@ -81,9 +81,9 @@ Add to `~/.claude/claude.json`:
 ```json
 {
   "mcpServers": {
-    "shadow-wiki": {
+    "pulse-wiki": {
       "command": "uv",
-      "args": ["run", "python", "/absolute/path/to/shadow-wiki/scripts/mcp_server.py"]
+      "args": ["run", "python", "/absolute/path/to/pulse-wiki/scripts/mcp_server.py"]
     }
   }
 }

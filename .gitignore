@@ -20,7 +20,7 @@ build/
 .coverage
 htmlcov/
 
-# ── Shadow Wiki runtime data (generated at runtime, not source) ───────────────
+# ── PulseWiki runtime data (generated at runtime, not source) ───────────────
 db/
 raw/
 

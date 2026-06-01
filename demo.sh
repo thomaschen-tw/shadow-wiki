@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shadow Wiki — MVP Demo
+# PulseWiki — MVP Demo
 # Runs the full pipeline: init → worker → push diff → show wiki output
 # Usage: bash demo.sh
 set -euo pipefail
@@ -116,7 +116,7 @@ step "To connect Claude Code, add to ~/.claude/claude.json:"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 echo '{
   "mcpServers": {
-    "shadow-wiki": {
+    "pulse-wiki": {
       "command": "'"$(which uv)"'",
       "args": ["run", "python", "'"$SCRIPT_DIR/scripts/mcp_server.py"'"]
     }

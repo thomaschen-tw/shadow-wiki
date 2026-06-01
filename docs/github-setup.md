@@ -1,6 +1,6 @@
 # GitHub Integration Setup
 
-Shadow Wiki listens to GitHub webhooks to automatically capture PR diffs and review comments. This guide explains what each setting does and how to set it up step by step.
+PulseWiki listens to GitHub webhooks to automatically capture PR diffs and review comments. This guide explains what each setting does and how to set it up step by step.
 
 ---
 
@@ -20,7 +20,7 @@ Shadow Wiki listens to GitHub webhooks to automatically capture PR diffs and rev
 
 1. Go to **GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)**
 2. Click **Generate new token (classic)**
-3. Name: `shadow-wiki`
+3. Name: `pulse-wiki`
 4. Expiration: 90 days (or no expiration for a personal project)
 5. Scopes: check **`repo`** (gives read access to code, PRs, issues)
 6. Click **Generate token** — copy the token immediately, it won't be shown again
@@ -128,9 +128,9 @@ with get_connection() as conn:
 
 ---
 
-## Is GitHub Required to Run Shadow Wiki?
+## Is GitHub Required to Run PulseWiki?
 
-**No.** GitHub is one optional data source. You can run Shadow Wiki with just:
+**No.** GitHub is one optional data source. You can run PulseWiki with just:
 
 ```bash
 # Push diffs manually without GitHub

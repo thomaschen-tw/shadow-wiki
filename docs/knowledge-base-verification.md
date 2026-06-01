@@ -1,6 +1,6 @@
 # Knowledge Base 流水线 — 验证与复盘
 
-本文记录一次端到端手动验证（2026-05-29），便于复盘 Shadow Wiki 如何从本地 Obsidian `wiki/` 产出 `shadow-wiki/wiki/knowledge/` 页面。
+本文记录一次端到端手动验证（2026-05-29），便于复盘 PulseWiki 如何从本地 Obsidian `wiki/` 产出 `pulse-wiki/wiki/knowledge/` 页面。
 
 ---
 
@@ -217,7 +217,7 @@ knowledge_base_scanner.py  →  SQLite events (source=knowledge_base)
 worker._handle_knowledge_event()
         │  CLASSIFY → SUMMARIZE → CREATE_PAGE | APPEND
         ▼
-shadow-wiki/wiki/knowledge/{category}/{slug}.md
+pulse-wiki/wiki/knowledge/{category}/{slug}.md
         ▼
 MCP search_wiki / Claude Code
 ```

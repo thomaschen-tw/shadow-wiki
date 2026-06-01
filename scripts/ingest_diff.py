@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Push a code diff into the Shadow Wiki event queue.
+"""Push a code diff into the PulseWiki event queue.
 
 Usage (stdin):
   git diff HEAD~1 | uv run python scripts/ingest_diff.py --diff - --pr 42 --title "Add feature"
@@ -59,7 +59,7 @@ def _save_raw(diff_text: str, title: str, confidence: float, reason: str) -> str
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Push a diff into the Shadow Wiki queue")
+    parser = argparse.ArgumentParser(description="Push a diff into the PulseWiki queue")
     parser.add_argument("--diff", required=True, help="Path to diff file, or - for stdin")
     parser.add_argument("--pr", default="", help="PR number")
     parser.add_argument("--title", default="Manual diff", help="PR/commit title")

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shadow Wiki — development bring-up (debug / study)
+# PulseWiki — development bring-up (debug / study)
 #
 # Unlike demo.sh, this script:
 #   • runs test_env.py (not just curl)
@@ -304,7 +304,7 @@ if $DAEMON || $WORKER_ONLY; then
   cat <<EOF
 {
   "mcpServers": {
-    "shadow-wiki": {
+    "pulse-wiki": {
       "command": "$UV_BIN",
       "args": ["run", "python", "$PROJECT_ROOT/scripts/mcp_server.py"]
     }

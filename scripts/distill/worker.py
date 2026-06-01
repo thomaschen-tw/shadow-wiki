@@ -38,7 +38,7 @@ def process_event(event) -> None:
 
 def run_worker(poll_interval: int = 30) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    logger.info("Shadow Wiki worker started (poll interval: %ds)", poll_interval)
+    logger.info("PulseWiki worker started (poll interval: %ds)", poll_interval)
     while True:
         events = get_pending_events(limit=10)
         if events:

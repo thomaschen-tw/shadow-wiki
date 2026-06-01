@@ -1,8 +1,8 @@
-# Shadow Wiki
+# PulseWiki
 
 > A self-updating technical wiki that turns GitHub PRs, Slack conversations, Linear tickets, local code changes, and your Obsidian knowledge vault into a searchable, structured knowledge base — automatically.
 
-Shadow Wiki runs a hybrid local/cloud LLM pipeline that watches your team's activity streams, distills them into module-level Obsidian wiki pages, and exposes everything as a FastMCP server so Claude Code can query your codebase context without scanning files.
+PulseWiki runs a hybrid local/cloud LLM pipeline that watches your team's activity streams, distills them into module-level Obsidian wiki pages, and exposes everything as a FastMCP server so Claude Code can query your codebase context without scanning files.
 
 ---
 
@@ -10,7 +10,7 @@ Shadow Wiki runs a hybrid local/cloud LLM pipeline that watches your team's acti
 
 Developer knowledge lives in too many places at once: PR descriptions, Slack threads, Linear comments, code commits. New engineers spend days reconstructing context. Senior engineers re-explain the same architecture decisions repeatedly. Documentation is always out of date because writing it is manual work nobody has time for.
 
-## What Shadow Wiki Does
+## What PulseWiki Does
 
 - **Watches** GitHub PRs, Slack channels, Linear tickets, local file changes, and your Obsidian wiki notes (daily digest)
 - **Distills** each event through a local Qwen model (free, private, fast) — classifies which code modules are affected, summarises the change, appends it to the right wiki page
@@ -73,7 +73,7 @@ flowchart TD
 
 ```bash
 # 1. Clone and install
-git clone https://github.com/thomaschen-tw/shadow-wiki.git && cd shadow-wiki
+git clone https://github.com/thomaschen-tw/pulse-wiki.git && cd pulse-wiki
 uv sync                        # creates .venv with Python 3.12 + all deps
 
 # 2. Configure
@@ -131,9 +131,9 @@ uv run python scripts/resource_mgr.py list   # see indexed wiki modules
 ```json
 {
   "mcpServers": {
-    "shadow-wiki": {
+    "pulse-wiki": {
       "command": "uv",
-      "args": ["run", "python", "/absolute/path/to/shadow-wiki/scripts/mcp_server.py"]
+      "args": ["run", "python", "/absolute/path/to/pulse-wiki/scripts/mcp_server.py"]
     }
   }
 }
@@ -216,7 +216,7 @@ get_pipeline_status_tool()                  → queue health: pending / failed /
 ## Project Structure
 
 ```
-shadow-wiki/
+pulse-wiki/
 ├── scripts/
 │   ├── config.py               ← all settings from .env (pydantic-settings)
 │   ├── db.py                   ← SQLite: event queue, module index, FTS5 search
@@ -271,7 +271,7 @@ Full index: **[docs/README.md](docs/README.md)**
 | [docs/workflow.md](docs/workflow.md) | Execution sequence diagram, what appears in `raw/` and `wiki/` |
 | [docs/architecture.md](docs/architecture.md) | ASCII + Mermaid component diagrams |
 | [docs/architecture-roadmap.md](docs/architecture-roadmap.md) | Production gaps & P0/P1/P2 backlog |
-| [docs/DEMO.md](docs/DEMO.md) | Hackathon / video demo script & pre-flight |
+| [docs/DEMO.md](docs/DEMO.md) | **录屏流程**：问题、分镜、每步命令与系统效果 |
 | [docs/github-setup.md](docs/github-setup.md) | GitHub token, poller vs webhook, ngrok for realtime |
 | [docs/github-actions-setup.md](docs/github-actions-setup.md) | Self-hosted runner, daily Obsidian knowledge digest |
 | [docs/knowledge-base-verification.md](docs/knowledge-base-verification.md) | E2E checklist (scan → distill → dedup) |

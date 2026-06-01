@@ -1,6 +1,6 @@
 # GitHub Actions — Self-Hosted Runner Setup
 
-Shadow Wiki uses a **self-hosted runner** so GitHub Actions jobs run on your Mac and
+PulseWiki uses a **self-hosted runner** so GitHub Actions jobs run on your Mac and
 can access your local Obsidian vault. This is a one-time setup (~10 minutes).
 
 ---
@@ -15,7 +15,7 @@ small runner daemon on your Mac, GitHub Actions jobs run locally, can read
 
 ## Step 1 — Register the Runner on GitHub
 
-1. Go to your repo: `https://github.com/thomaschen-tw/shadow-wiki`
+1. Go to your repo: `https://github.com/thomaschen-tw/pulse-wiki`
 2. Click **Settings → Actions → Runners → New self-hosted runner**
 3. Select **macOS** and **ARM64** (Apple Silicon) or **x64** as appropriate
 4. GitHub will display a set of commands — follow them in your terminal:
@@ -29,7 +29,7 @@ curl -o actions-runner-osx-arm64.tar.gz -L <URL from GitHub UI>
 tar xzf ./actions-runner-osx-arm64.tar.gz
 
 # Configure the runner (GitHub provides the exact token in the UI)
-./config.sh --url https://github.com/thomaschen-tw/shadow-wiki --token <TOKEN>
+./config.sh --url https://github.com/thomaschen-tw/pulse-wiki --token <TOKEN>
 ```
 
 When asked for the runner name, labels, and work folder, press Enter to accept defaults.

@@ -1,4 +1,4 @@
-# Shadow Wiki — Architecture
+# PulseWiki — Architecture
 
 ## System Overview
 

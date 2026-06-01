@@ -1,4 +1,4 @@
-# Shadow Wiki — Standard Operating Procedure
+# PulseWiki — Standard Operating Procedure
 
 > **What it does:** Watches GitHub PRs, Slack channels, Linear tickets, and local code files. Distills them into a module-level Obsidian wiki via a local Qwen model (LM Studio / Ollama) for routine updates and a cloud model (Claude / Qwen Cloud / DeepSeek) for new-page synthesis. Exposes the wiki as a FastMCP server so Claude Code can search it without scanning the full codebase.
 
@@ -41,7 +41,7 @@
 
 ```bash
 # Clone / enter the project
-cd /path/to/shadow-wiki
+cd /path/to/pulse-wiki
 
 # Create venv with Python 3.12 and install all deps (uv downloads Python if needed)
 uv sync
@@ -191,7 +191,7 @@ RAW_DIR=./raw           # Raw event JSON backups (for debugging)
 3. **OAuth & Permissions** → Bot Token Scopes: `channels:history`, `channels:read`, `groups:history`
 4. Install to workspace → copy Bot User OAuth Token → save as `SLACK_BOT_TOKEN`
 5. **Event Subscriptions** → Enable → Subscribe to bot events: `message.channels`
-6. Invite the bot to the channels you want to monitor: `/invite @shadow-wiki`
+6. Invite the bot to the channels you want to monitor: `/invite @pulse-wiki`
 7. Set `SLACK_CHANNELS` to the channel IDs (visible in the URL when you open the channel in a browser)
 8. Start the connector: `python scripts/ingest/slack_connector.py`
 
@@ -325,17 +325,17 @@ Add to `~/.claude/claude.json`:
 ```json
 {
   "mcpServers": {
-    "shadow-wiki": {
+    "pulse-wiki": {
       "command": "python",
-      "args": ["/absolute/path/to/shadow-wiki/scripts/mcp_server.py"]
+      "args": ["/absolute/path/to/pulse-wiki/scripts/mcp_server.py"]
     }
   }
 }
 ```
 
-Replace `/absolute/path/to/shadow-wiki` with the real path (e.g. `/Users/you/shadow-wiki`).
+Replace `/absolute/path/to/pulse-wiki` with the real path (e.g. `/Users/you/pulse-wiki`).
 
-Restart Claude Code. Verify: `/mcp` → `shadow-wiki` should appear in the list.
+Restart Claude Code. Verify: `/mcp` → `pulse-wiki` should appear in the list.
 
 ### 6.2 Using the wiki in Claude Code
 
@@ -352,7 +352,7 @@ update_module("auth/session", "Known Issues", "- token refresh race condition")
 
 Claude Code uses these automatically when context about the codebase is needed. You can also invoke them explicitly with natural language:
 
-> "Check shadow-wiki for anything related to authentication before I change this file."
+> "Check pulse-wiki for anything related to authentication before I change this file."
 
 ---
 
@@ -572,7 +572,7 @@ get_pipeline_status_tool()
 ### Project Structure
 
 ```
-shadow-wiki/
+pulse-wiki/
 ├── .env                        ← sole config source (never commit)
 ├── .env.example                ← config template (commit this)
 ├── .python-version             ← pins Python 3.12 for uv / pyenv
@@ -674,7 +674,7 @@ Socket Mode requires both `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN`. Confirm both 
 
 Run the scripts from the project root, not from inside `scripts/`:
 ```bash
-cd /path/to/shadow-wiki
+cd /path/to/pulse-wiki
 python scripts/distill/worker.py   # correct
 ```
 
@@ -704,4 +704,4 @@ The `conftest.py` fixture creates an isolated temporary DB per test, so tests ar
 
 ---
 
-*Last updated: 2026-05-28 | Shadow Wiki v1.1*
+*Last updated: 2026-05-28 | PulseWiki v1.1*

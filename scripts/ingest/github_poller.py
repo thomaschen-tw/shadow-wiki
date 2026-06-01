@@ -178,7 +178,7 @@ def main() -> None:
         logger.error("GITHUB_TOKEN not set in .env — cannot poll GitHub API")
         sys.exit(1)
     if not s.github_repo or s.github_repo == "owner/repo":
-        logger.error("GITHUB_REPO not set in .env (e.g. thomaschen-tw/shadow-wiki)")
+        logger.error("GITHUB_REPO not set in .env (e.g. thomaschen-tw/pulse-wiki)")
         sys.exit(1)
 
     init_db()

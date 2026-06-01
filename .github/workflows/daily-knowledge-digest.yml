@@ -48,8 +48,8 @@ jobs:
 
       - name: Commit and push wiki updates
         run: |
-          git config user.email "shadow-wiki[bot]@users.noreply.github.com"
-          git config user.name "Shadow Wiki Bot"
+          git config user.email "pulse-wiki[bot]@users.noreply.github.com"
+          git config user.name "PulseWiki Bot"
           git add wiki/
           git diff --staged --quiet \
             && echo "No wiki changes today." \

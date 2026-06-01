@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Shadow Wiki — Environment Checker
+PulseWiki — Environment Checker
 Run: uv run python test_env.py
 
 Validates .env settings and tests live connectivity to every configured service.
@@ -65,7 +65,7 @@ def get_models(base_url: str, api_key: str = "", timeout: float = 5.0) -> list[s
 # ── Section 1: Python & packages ─────────────────────────────────────────────
 
 print("\n═══════════════════════════════════════════════════")
-print("  Shadow Wiki — Environment Check")
+print("  PulseWiki — Environment Check")
 print("═══════════════════════════════════════════════════\n")
 
 info(f"Python {sys.version.split()[0]} — {sys.executable}")

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Shadow Wiki resource manager.
+PulseWiki resource manager.
 
 Commands:
   init              Initialise the SQLite database
@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from scripts.config import get_settings
 
 
-# ── Shadow Wiki commands ───────────────────────────────────────────────────────
+# ── PulseWiki commands ───────────────────────────────────────────────────────
 
 def cmd_init():
     from scripts.db import init_db

@@ -1,4 +1,4 @@
-# Shadow Wiki — Workflow & Data Flow
+# PulseWiki — Workflow & Data Flow
 
 This document shows exactly how the program runs, what data moves between each component, and what you will find in `raw/` and `wiki/` after running it.
 
@@ -214,7 +214,7 @@ The `auth/session` module implements Redis-backed session management...
 
 ## Running the Full Demo With Your GitHub Repo
 
-You have `thomaschen-tw/shadow-wiki` with 30+ commits. Here is the exact sequence:
+You have `thomaschen-tw/pulse-wiki` with 30+ commits. Here is the exact sequence:
 
 ```bash
 # Step 1 — verify your token and repo are configured
@@ -243,7 +243,7 @@ cat wiki/scripts/config.md    # example — depends on what LLM classifies
 Expected terminal output during processing:
 
 ```
-2026-05-28 14:30:00 INFO GitHub poller started  repo=thomaschen-tw/shadow-wiki  limit=30
+2026-05-28 14:30:00 INFO GitHub poller started  repo=thomaschen-tw/pulse-wiki  limit=30
 2026-05-28 14:30:01 INFO Queued PR #1: feat: uv + Python 3.12 setup
 2026-05-28 14:30:01 INFO Queued PR #2: fix: correct anthropic version pin
 ...

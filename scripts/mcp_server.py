@@ -12,7 +12,7 @@ from fastmcp.tools.function_tool import FunctionTool
 from scripts.db import get_connection, get_pipeline_status, search_modules_fts
 from scripts.wiki.manager import append_to_section, module_exists, read_module
 
-mcp = FastMCP("shadow-wiki")
+mcp = FastMCP("pulse-wiki")
 
 
 def search_wiki(query: str, limit: int = 5) -> list[dict]:
