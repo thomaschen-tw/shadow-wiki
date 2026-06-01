@@ -299,7 +299,7 @@ if $DAEMON || $WORKER_ONLY; then
   echo -e "${GREEN}Dev stack up.${NC} Worker will process remaining pending events."
   echo "  Stop: Ctrl+C"
   echo "  Status: uv run python scripts/resource_mgr.py status"
-  echo "  MCP config:"
+  echo "  MCP: .cursor/mcp.json (enable pulse-wiki in Cursor Settings → MCP)"
   UV_BIN="$(command -v uv)"
   cat <<EOF
 {

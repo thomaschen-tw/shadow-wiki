@@ -24,9 +24,7 @@ htmlcov/
 db/
 raw/
 
-# ── Claude Code project settings ──────────────────────────────────────────────
-# settings.local.json may contain hooks with sensitive commands or paths
-# plans/ and specs/ are internal design artefacts
+# ── Legacy Claude Code project settings ───────────────────────────────────────
 .claude/
 
 # ── Internal superpowers planning docs ────────────────────────────────────────
@@ -43,8 +41,9 @@ logs/
 # ── Obsidian local vault UI state (not project source) ────────────────────────
 .obsidian/
 
-# ── IDE / editor local state ──────────────────────────────────────────────────
-.cursor/
+# ── Cursor local state (keep project MCP config) ──────────────────────────────
+.cursor/*
+!.cursor/mcp.json
 
 # ── wiki/ contains LLM-generated output — commit intentionally as living docs ─
 # (not gitignored — commit wiki/*.md for demo samples and shared knowledge)

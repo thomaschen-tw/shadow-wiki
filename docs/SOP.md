@@ -1,6 +1,6 @@
 # PulseWiki — Standard Operating Procedure
 
-> **What it does:** Watches GitHub PRs, Slack channels, Linear tickets, and local code files. Distills them into a module-level Obsidian wiki via a local Qwen model (LM Studio / Ollama) for routine updates and a cloud model (Claude / Qwen Cloud / DeepSeek) for new-page synthesis. Exposes the wiki as a FastMCP server so Claude Code can search it without scanning the full codebase.
+> **What it does:** Watches GitHub PRs, Slack channels, Linear tickets, and local code files. Distills them into a module-level Obsidian wiki via a local Qwen model (LM Studio / Ollama) for routine updates and a cloud model (Claude / Qwen Cloud / DeepSeek) for new-page synthesis. Exposes the wiki as a FastMCP server so Cursor can search it without scanning the full codebase.
 
 ---
 
@@ -11,7 +11,7 @@
 3. [Configuration (.env)](#3-configuration)
 4. [Data Source Setup](#4-data-source-setup)
 5. [Starting the System](#5-starting-the-system)
-6. [Claude Code MCP Integration](#6-claude-code-mcp-integration)
+6. [Cursor MCP Integration](#6-claude-code-mcp-integration)
 7. [Daily Operations](#7-daily-operations)
 8. [Switching LLM Backends](#8-switching-llm-backends)
 9. [MCP Tool Reference](#9-mcp-tool-reference)
@@ -294,13 +294,13 @@ python scripts/ingest/linear_connector.py &
 python scripts/ingest/local_scanner.py &
 ```
 
-### Step 5 — Start the MCP server (for Claude Code)
+### Step 5 — Start the MCP server (for Cursor)
 
 ```bash
 python scripts/mcp_server.py
 ```
 
-This runs in stdio mode. Claude Code manages its lifecycle — you don't need to keep it running manually.
+This runs in stdio mode. Cursor starts it via `.cursor/mcp.json` — you don't need to run it manually during normal use.
 
 ### Minimal Setup (no cloud keys, demo only)
 
@@ -316,30 +316,32 @@ echo "+def hello(): pass" | python scripts/ingest_diff.py --diff - --pr 1 --titl
 
 ---
 
-## 6. Claude Code MCP Integration
+## 6. Cursor MCP Integration
 
 ### 6.1 Register the MCP server
 
-Add to `~/.claude/claude.json`:
+The repo ships **`.cursor/mcp.json`**. Open the project in Cursor and enable **Settings → MCP → pulse-wiki**.
+
+To override or use user-level config, add the same block to `~/.cursor/mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "pulse-wiki": {
-      "command": "python",
-      "args": ["/absolute/path/to/pulse-wiki/scripts/mcp_server.py"]
+      "command": "uv",
+      "args": ["run", "python", "/absolute/path/to/pulse-wiki/scripts/mcp_server.py"]
     }
   }
 }
 ```
 
-Replace `/absolute/path/to/pulse-wiki` with the real path (e.g. `/Users/you/pulse-wiki`).
+Replace `/absolute/path/to/pulse-wiki` with the real path (e.g. `/Users/you/Documents/obsidian/pulse-wiki`).
 
-Restart Claude Code. Verify: `/mcp` → `pulse-wiki` should appear in the list.
+Reload MCP if you edit the file. Verify under **Cursor Settings → MCP** that `pulse-wiki` is enabled and connected.
 
-### 6.2 Using the wiki in Claude Code
+### 6.2 Using the wiki in Cursor
 
-Once connected, Claude Code can call:
+Once connected, Cursor can call:
 
 ```
 search_wiki("session token")        → find relevant modules
@@ -350,7 +352,7 @@ get_pipeline_status_tool()          → check queue health
 update_module("auth/session", "Known Issues", "- token refresh race condition")
 ```
 
-Claude Code uses these automatically when context about the codebase is needed. You can also invoke them explicitly with natural language:
+Cursor uses these automatically when context about the codebase is needed. You can also invoke them explicitly with natural language:
 
 > "Check pulse-wiki for anything related to authentication before I change this file."
 
@@ -455,7 +457,7 @@ uv run python scripts/distill/worker.py
 
 ## 9. MCP Tool Reference
 
-All tools are available in Claude Code once the MCP server is registered.
+All tools are available in Cursor once the MCP server is registered.
 
 ### `search_wiki(query, limit=5)`
 Full-text search across all wiki content. Uses FTS5 trigram with an OR-token fallback for multi-word queries.
@@ -563,7 +565,7 @@ get_pipeline_status_tool()
                              │  MCP protocol
                              ▼
                     ┌─────────────────┐
-                    │   Claude Code   │
+                    │   Cursor   │
                     │  (developer     │
                     │   terminal)     │
                     └─────────────────┘
@@ -578,7 +580,7 @@ pulse-wiki/
 ├── .python-version             ← pins Python 3.12 for uv / pyenv
 ├── pyproject.toml              ← uv project file + pytest config
 ├── requirements.txt            ← legacy pip fallback
-├── CLAUDE.md                   ← developer quick-start
+├── AGENTS.md                   ← developer quick-start
 ├── README.md                   ← project overview and quick start
 ├── docs/SOP.md                 ← this file
 ├── wiki/                       ← generated Obsidian pages (wiki vault root)

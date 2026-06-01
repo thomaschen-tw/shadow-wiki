@@ -31,7 +31,7 @@ git log -1 --oneline
 # 13891f4 docs: knowledge base digest — README, SOP, workflow, architecture
 ```
 
-涉及文件：`README.md`、`CLAUDE.md`、`docs/SOP.md`（§4.5）、`docs/workflow.md`、`docs/architecture.md`。
+涉及文件：`README.md`、`AGENTS.md`、`docs/SOP.md`（§4.5）、`docs/workflow.md`、`docs/architecture.md`。
 
 ---
 
@@ -219,7 +219,7 @@ worker._handle_knowledge_event()
         ▼
 pulse-wiki/wiki/knowledge/{category}/{slug}.md
         ▼
-MCP search_wiki / Claude Code
+MCP search_wiki / Cursor
 ```
 
 ---

@@ -112,7 +112,7 @@ step "Wiki files created"
 find wiki -name "*.md" 2>/dev/null | head -10 || echo "  (none yet — LLM may still be processing)"
 
 # ── 7. MCP server hint ────────────────────────────────────────────────────────
-step "To connect Claude Code, add to ~/.claude/claude.json:"
+step "Cursor MCP — project config: .cursor/mcp.json (enable in Settings → MCP):"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 echo '{
   "mcpServers": {

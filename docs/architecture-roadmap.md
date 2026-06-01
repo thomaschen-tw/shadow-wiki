@@ -117,7 +117,7 @@ FTS5 + 事件表 + 多 connector 同写：**WAL 模式下尚可单机**，NFS/�
 `append_to_section` **无限 prepend**（`wiki/manager.py` 注释已写明 newest-first）。同一 `auth/session.md` 经 50 个 PR 后：  
 1）文件超过本地模型上下文 → append 阶段的 LLM **看不见历史**；  
 2）FTS snippet 失真；  
-3）MCP `get_module` 把垃圾喂给 Claude Code → **上下文污染**。  
+3）MCP `get_module` 把垃圾喂给 Cursor → **上下文污染**。  
 Knowledge 路径仅有「前 40 字符去重」，**无段落级归档、无过期策略**。这是 **熵增死结**，不是优化问题。
 
 **推荐的生产级实现方案：**  
@@ -190,7 +190,7 @@ Worker 重试会导致 **重复 bullet**（除非人工 diff）。Knowledge 的 
 #### 【混合检索 Hybrid Search（FTS5 + 向量）】
 
 **架构痛点分析：**  
-`search_modules_fts` 仅 trigram FTS。「会话超时」「哪里 revoke token」类 **语义问法** 召回率极差；中文/中英混合更惨。Claude Code 会以为 wiki 没内容，然后 **退回全仓库 grep**——PulseWiki 价值归零。
+`search_modules_fts` 仅 trigram FTS。「会话超时」「哪里 revoke token」类 **语义问法** 召回率极差；中文/中英混合更惨。Cursor 会以为 wiki 没内容，然后 **退回全仓库 grep**——PulseWiki 价值归零。
 
 **推荐的生产级实现方案：**  
 - 本地轻量：**sqlite-vec** / LanceDB embedded / Chroma persistent；chunk 级（按 `##` 分段）embedding。  
@@ -268,7 +268,7 @@ stdio MCP 假定 **单用户本机**。远程团队共用 wiki 时，stdio 不�
 #### 【数据源 ACL / 摄取过滤（Ingest ACL）】
 
 **架构痛点分析：**  
-Slack 全频道、Linear 全团队、GitHub 全 repo 进同一 wiki — **#finance、#hr、private repo** 会泄漏到 Claude Code 可检索的平面。这是 **合规雷**，不是功能偏好。
+Slack 全频道、Linear 全团队、GitHub 全 repo 进同一 wiki — **#finance、#hr、private repo** 会泄漏到 Cursor 可检索的平面。这是 **合规雷**，不是功能偏好。
 
 **推荐的生产级实现方案：**  
 - `.env` + DB 表：`INGEST_ALLOW_SLACK_CHANNELS`、`INGEST_DENY_LINEAR_TEAMS`、`GITHUB_ALLOWED_PATHS`。  

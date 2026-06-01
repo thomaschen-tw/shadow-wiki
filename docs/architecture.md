@@ -71,7 +71,7 @@
                                │  MCP protocol
                                ▼
                     ┌─────────────────────┐
-                    │     Claude Code      │
+                    │     Cursor      │
                     │  (developer terminal)│
                     └─────────────────────┘
 ```
@@ -118,7 +118,7 @@ flowchart TD
         MCP["mcp_server.py\nFastMCP stdio\n6 tools"]
     end
 
-    CC["Claude Code\n(developer)"]
+    CC["Cursor\n(developer)"]
 
     GH --> GH_C
     SL --> SL_C
@@ -171,5 +171,5 @@ flowchart TD
    a. module_exists? No → call_llm(CREATE_PAGE) → write wiki/auth/session.md
    b. module_exists? Yes → call_llm(APPEND) → prepend to ## Recent Changes
 6. update_fts() → SQLite FTS5 index refreshed
-7. Claude Code calls search_wiki("session token") → MCP returns snippet
+7. Cursor calls search_wiki("session token") → MCP returns snippet
 ```

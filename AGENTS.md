@@ -13,7 +13,7 @@ uv run python test_env.py                            # verify connectivity befor
 uv run python scripts/resource_mgr.py init          # initialise SQLite database
 uv run python scripts/distill/worker.py &           # distillation worker (daemon)
 uv run python scripts/ingest/github_connector.py &  # GitHub webhook on :9000 (optional)
-uv run python scripts/mcp_server.py                 # MCP server (stdio, for Claude Code)
+# MCP server: Cursor loads .cursor/mcp.json automatically (stdio)
 ```
 
 Or just: `bash demo.sh`
@@ -32,7 +32,7 @@ Debug / study (single-event inline, won't drain the queue): `bash dev_up.sh` · 
            ↓
     Obsidian wiki files (wiki/{module}.md)
            ↓ mcp_server.py (FastMCP stdio)
-    Claude Code → search_wiki / get_module / list_modules / …
+    Cursor → search_wiki / get_module / list_modules / …
 ```
 
 ## Key Files
@@ -74,20 +74,13 @@ Verify: `uv run python scripts/resource_mgr.py llm` · reload worker after chang
 
 `auto` probes LM Studio (`localhost:1234`) first, then Ollama (`localhost:11434`).
 
-## Claude Code MCP Config
+## Cursor MCP Config
 
-Add to `~/.claude/claude.json`:
+Project-level config: **`.cursor/mcp.json`** (committed). Cursor starts the server over stdio when MCP is enabled.
 
-```json
-{
-  "mcpServers": {
-    "pulse-wiki": {
-      "command": "uv",
-      "args": ["run", "python", "/absolute/path/to/pulse-wiki/scripts/mcp_server.py"]
-    }
-  }
-}
-```
+If you clone elsewhere, update the absolute path in `args`. User-level fallback: `~/.cursor/mcp.json` with the same `mcpServers.pulse-wiki` block.
+
+Reload after edits: **Cursor Settings → MCP** → enable `pulse-wiki`.
 
 ## Running Tests
 

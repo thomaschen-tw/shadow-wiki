@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "pulse-wiki": {
+      "command": "uv",
+      "args": [
+        "run",
+        "python",
+        "/Users/xiaotongchen/Documents/obsidian/pulse-wiki/scripts/mcp_server.py"
+      ]
+    }
+  }
+}

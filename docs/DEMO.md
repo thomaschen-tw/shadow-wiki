@@ -1,6 +1,6 @@
 # PulseWiki — 录屏流程文件（Hackathon Demo）
 
-> **项目一句话：** PulseWiki 把 PR、Slack、Linear、代码 diff 和知识库笔记自动蒸馏成**结构化、可检索的活文档**，并通过 **MCP** 让 Claude Code 直接查 wiki，而不是暴力 grep 全仓库。  
+> **项目一句话：** PulseWiki 把 PR、Slack、Linear、代码 diff 和知识库笔记自动蒸馏成**结构化、可检索的活文档**，并通过 **MCP** 让 Cursor 直接查 wiki，而不是暴力 grep 全仓库。  
 > **录屏主命令：** `bash dev_up.sh`（单条事件、不拖垮队列）  
 > **建议时长：** 4–6 分钟  
 > **口播语言：** 中文（屏幕可英文）
@@ -16,7 +16,7 @@
 | **文档一次性写完就腐烂** | README / Confluence 在第一次提交后很少更新，与真实系统脱节 |
 | **知识碎片化** | 架构决策在 PR 评论、Slack 线程、Linear 工单、工程师脑子里，没有单一真相源 |
 | **新人/on-call 成本高** | 接手模块要翻几十条 PR、搜 Slack，Senior 反复讲同一件事 |
-| **AI 编码助手上下文不足** | Claude Code / Copilot 只能扫代码，看不到「为什么当时这么设计」 |
+| **AI 编码助手上下文不足** | Cursor / Copilot 只能扫代码，看不到「为什么当时这么设计」 |
 
 ### 1.2 PulseWiki 的解法（对应画面：架构图）
 
@@ -30,7 +30,7 @@
         ↓
    wiki/{module}.md（YAML + Overview / Recent Changes / …）
         ↓ MCP（6 个工具）
-   Claude Code：search_wiki / get_module / …
+   Cursor：search_wiki / get_module / …
 ```
 
 **和「普通 RAG」的区别：** 不是扔一堆文档进向量库，而是**按模块持续追加变更史**，且默认本地处理、隐私可控。
@@ -49,7 +49,7 @@
 | 4 | `uv run python test_env.py` | 末尾 `23 passed`，LM Studio 相关为 PASS | 看 FAIL 项逐项修 |
 | 5 | `uv run python scripts/resource_mgr.py llm` | `qwen/qwen3.6-27b ✓`，Pipeline 指向 lmstudio | 改 `.env` 与 LM Studio 模型 id 一致 |
 | 6 | `uv run python scripts/resource_mgr.py status` | 了解 `Pending` 数量；**录制主路径建议 Pending &lt; 5** | 过多则勿跑 `demo.sh`，只用 `dev_up.sh` |
-| 7 | Claude Code 已配置 MCP（见 README `mcpServers` → `scripts/mcp_server.py`） | 录屏后半可调用 `search_wiki` | 用终端 `uv run python -c "…search_wiki…"` 代替 |
+| 7 | Cursor 已启用 MCP（项目内 `.cursor/mcp.json` → Settings → MCP → pulse-wiki） | 录屏后半可调用 `search_wiki` | 用终端 `uv run python -c "…search_wiki…"` 代替 |
 
 ### 2.2 录屏时不要用的命令
 
@@ -158,35 +158,35 @@ Modules : K
 
 ---
 
-### 场景 D — AI 编码助手消费上下文（3:00 – 4:15）【Claude Code 或终端】
+### 场景 D — AI 编码助手消费上下文（3:00 – 4:15）【Cursor 或终端】
 
-#### 步骤 D1：Claude Code 中调用 MCP（推荐）
+#### 步骤 D1：Cursor 中调用 MCP（推荐）
 
-在 Claude Code 对话中输入（按顺序）：
+在 Cursor 对话中输入（按顺序）：
 
 ```
 请用 pulse-wiki 搜索：redis session token
 ```
 
-**预期效果：** Claude 调用 `search_wiki`，返回 `auth/session` 等模块及高亮 snippet。
+**预期效果：** Cursor 调用 `search_wiki`，返回 `auth/session` 等模块及高亮 snippet。
 
 ```
 请读取 auth/session 模块全文
 ```
 
-**预期效果：** Claude 调用 `get_module("auth/session")`，返回 frontmatter + 正文。
+**预期效果：** Cursor 调用 `get_module("auth/session")`，返回 frontmatter + 正文。
 
 ```
 根据 wiki，我们项目的 session 是怎么创建和校验的？
 ```
 
-**预期效果：** Claude 基于 wiki 回答（Redis、SHA-256、TTL 等），**无需** `grep -r session` 全仓库。
+**预期效果：** Cursor 基于 wiki 回答（Redis、SHA-256、TTL 等），**无需** `grep -r session` 全仓库。
 
-**口播：** 「PulseWiki 是 Claude Code 的上下文层，不是替代 IDE。」
+**口播：** 「PulseWiki 是 Cursor 的上下文层，不是替代 IDE。」
 
 ---
 
-#### 步骤 D2：终端验证 MCP（Claude 未配置时的备选）
+#### 步骤 D2：终端验证 MCP（Cursor MCP 未配置时的备选）
 
 ```bash
 uv run python -c "
@@ -270,7 +270,7 @@ uv run python scripts/resource_mgr.py list
 | 1 | `resource_mgr.py llm` | 10s | 模型 ✓，pipeline=lmstudio |
 | 2 | `bash dev_up.sh` | 2–4min | event queued → LLM 日志 → done |
 | 3 | 打开 `wiki/auth/session.md` | 30s | Recent Changes 有新条目 |
-| 4 | Claude `search_wiki` + `get_module` | 60s | AI 能答 session 设计 |
+| 4 | Cursor `search_wiki` + `get_module` | 60s | AI 能答 session 设计 |
 | 5 | `pytest -q` | 5s | 49 passed |
 | 6 | 结尾口播 | 15s | TW 场景、开源地址 |
 
@@ -283,7 +283,7 @@ uv run python scripts/resource_mgr.py list
 | `dev_up` 立刻 `failed` | LM Studio 未开 / 模型名错 / OOM | 打开已有 `wiki/auth/session.md` + 终端只跑 `search_wiki` |
 | `403 FreeTierOnly` | 用了 `--cloud` 且 DashScope 免费额度用尽 | 改本地 `dev_up.sh`，勿用 `--cloud` |
 | Pending 很多 | 之前跑过 knowledge scanner | 口播「队列可积压，生产用 worker 异步处理」；演示只用 `dev_up` 单条 |
-| MCP 无 pulse-wiki | `claude.json` 未配置 | 用本文「步骤 D2」终端命令 |
+| MCP 无 pulse-wiki | `.cursor/mcp.json` 未配置 | 用本文「步骤 D2」终端命令 |
 | CLASSIFY 分到奇怪模块 | 小模型幻觉 | 口播「可加人工 review 队列」指向 `docs/architecture-roadmap.md` |
 
 ---

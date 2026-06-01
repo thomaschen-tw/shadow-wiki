@@ -17,7 +17,7 @@ sequenceDiagram
     participant Cloud   as Cloud LLM (optional)
     participant Wiki    as wiki/*.md
     participant MCP     as mcp_server.py
-    participant CC      as Claude Code
+    participant CUR     as Cursor
 
     User->>Poller: uv run python scripts/ingest/github_poller.py --limit 30
 
@@ -315,7 +315,7 @@ mcp_server.py  (FastMCP stdio)
     │
     │  MCP protocol (JSON-RPC over stdio)
     ▼
-Claude Code
+Cursor
 
 ---
 
@@ -346,5 +346,5 @@ worker.py  _handle_knowledge_event()
          │
          └──► update_fts()
 
-wiki/knowledge/*.md  →  MCP search_wiki / Claude Code
+wiki/knowledge/*.md  →  MCP search_wiki / Cursor
 ```

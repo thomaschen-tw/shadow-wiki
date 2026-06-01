@@ -2,7 +2,7 @@
 
 > A self-updating technical wiki that turns GitHub PRs, Slack conversations, Linear tickets, local code changes, and your Obsidian knowledge vault into a searchable, structured knowledge base — automatically.
 
-PulseWiki runs a hybrid local/cloud LLM pipeline that watches your team's activity streams, distills them into module-level Obsidian wiki pages, and exposes everything as a FastMCP server so Claude Code can query your codebase context without scanning files.
+PulseWiki runs a hybrid local/cloud LLM pipeline that watches your team's activity streams, distills them into module-level Obsidian wiki pages, and exposes everything as a FastMCP server so Cursor can query your codebase context without scanning files.
 
 ---
 
@@ -15,7 +15,7 @@ Developer knowledge lives in too many places at once: PR descriptions, Slack thr
 - **Watches** GitHub PRs, Slack channels, Linear tickets, local file changes, and your Obsidian wiki notes (daily digest)
 - **Distills** each event through a local Qwen model (free, private, fast) — classifies which code modules are affected, summarises the change, appends it to the right wiki page
 - **Creates** new wiki pages via a cloud model (Qwen Cloud / Claude / DeepSeek) only when a module is seen for the first time — so cloud cost stays near zero
-- **Exposes** the entire wiki as a FastMCP server, letting Claude Code call `search_wiki("redis session")` instead of grepping thousands of files
+- **Exposes** the entire wiki as a FastMCP server, letting Cursor call `search_wiki("redis session")` instead of grepping thousands of files
 
 ---
 
@@ -51,14 +51,14 @@ flowchart TD
 
     WIKI["Obsidian Wiki\nwiki/module.md\nYAML frontmatter"]
     MCP["MCP Server\nmcp_server.py stdio\n6 tools"]
-    CC["Claude Code"]
+    IDE["Cursor"]
 
     GH-->GH_C; SL-->SL_C; LI-->LI_C; FS-->LS_C; KB-->KB_C; CLI-->ID
     GH_C & SL_C & LI_C & LS_C & KB_C & ID --> DB
     DB --> W
     W --> LOCAL --> WIKI
     W --> CLOUD --> WIKI
-    WIKI --> MCP --> CC
+    WIKI --> MCP --> IDE
 
     style LOCAL fill:#e8f5e9,stroke:#388e3c
     style CLOUD fill:#e3f2fd,stroke:#1976d2
@@ -126,7 +126,7 @@ git diff HEAD~1 | uv run python scripts/ingest_diff.py \
 uv run python scripts/resource_mgr.py list   # see indexed wiki modules
 ```
 
-**Connect to Claude Code** — add to `~/.claude/claude.json`:
+**Connect to Cursor** — open this repo in Cursor. Project MCP config is **`.cursor/mcp.json`** (already in the repo). Enable **Settings → MCP → pulse-wiki**. If you cloned elsewhere, update the absolute path in `args`:
 
 ```json
 {
@@ -139,7 +139,7 @@ uv run python scripts/resource_mgr.py list   # see indexed wiki modules
 }
 ```
 
-Then ask Claude Code: `search_wiki("redis session")` or `get_module("auth/session")`.
+In Cursor chat, ask: *「用 pulse-wiki 搜索 redis session」* or *「读取 auth/session 模块」*.
 
 ---
 
@@ -152,7 +152,7 @@ Then ask Claude Code: `search_wiki("redis session")` or `get_module("auth/sessio
 uv run python scripts/resource_mgr.py llm
 ```
 
-Restart `worker.py` (and Claude Code MCP) after changing model names. `resource_mgr.py cloud|db` rewrites `.env` and calls `reload_settings()` automatically.
+Restart `worker.py` (reload Cursor MCP if you changed `mcp.json`) after changing model names. `resource_mgr.py cloud|db` rewrites `.env` and calls `reload_settings()` automatically.
 
 ### LLM Backends
 
@@ -198,9 +198,9 @@ All data sources are **optional**. The poller is the easiest way to get started 
 
 ---
 
-## MCP Tools (Claude Code)
+## MCP Tools (Cursor)
 
-Once the MCP server is registered, Claude Code can call:
+Once the MCP server is registered, Cursor can call:
 
 ```
 search_wiki("redis session token")          → FTS5 search across all wiki content
@@ -217,6 +217,9 @@ get_pipeline_status_tool()                  → queue health: pending / failed /
 
 ```
 pulse-wiki/
+├── .cursor/
+│   └── mcp.json                ← Cursor MCP config (stdio → mcp_server.py)
+├── AGENTS.md                   ← developer quick-start (Cursor workflow)
 ├── scripts/
 │   ├── config.py               ← all settings from .env (pydantic-settings)
 │   ├── db.py                   ← SQLite: event queue, module index, FTS5 search
@@ -232,7 +235,7 @@ pulse-wiki/
 │   │   └── knowledge_base_scanner.py ← Obsidian vault wiki/ scanner
 │   ├── wiki/
 │   │   └── manager.py          ← read/write Obsidian .md with YAML frontmatter
-│   ├── mcp_server.py           ← FastMCP stdio server (6 tools for Claude Code)
+│   ├── mcp_server.py           ← FastMCP stdio server (6 tools for Cursor)
 │   ├── ingest_diff.py          ← CLI: push diff manually + AST syntax validation
 │   └── resource_mgr.py         ← CLI: init / status / list / cloud / db / dev
 ├── tests/                      ← 48 tests
