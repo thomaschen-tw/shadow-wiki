@@ -25,7 +25,10 @@ def _handle_request(client: SocketModeClient, req: SocketModeRequest) -> None:
     event = req.payload.get("event", {})
     if event.get("type") not in ("message",):
         return
-    if event.get("subtype"):
+
+    # Allow thread replies and thread broadcasts through; drop bot/system subtypes
+    subtype = event.get("subtype")
+    if subtype and subtype not in ("thread_broadcast",):
         return
 
     s = get_settings()
@@ -33,15 +36,23 @@ def _handle_request(client: SocketModeClient, req: SocketModeRequest) -> None:
     if allowed and event.get("channel") not in allowed:
         return
 
+    ts = event.get("ts", "")
+    thread_ts = event.get("thread_ts")
+    is_thread_reply = bool(thread_ts and thread_ts != ts)
+
     raw_json = json.dumps({
-        "channel": event.get("channel", ""),
-        "user": event.get("user", ""),
-        "body": event.get("text", ""),
-        "ts": event.get("ts", ""),
-        "thread_ts": event.get("thread_ts"),
+        "channel":         event.get("channel", ""),
+        "user":            event.get("user", ""),
+        "body":            event.get("text", ""),
+        "ts":              ts,
+        "thread_ts":       thread_ts,
+        "is_thread_reply": is_thread_reply,
+        "reply_count":     event.get("reply_count", 0),
     })
-    push_event("slack", "message", raw_json)
-    logger.info("Queued Slack message from channel %s", event.get("channel"))
+
+    event_type = "thread_reply" if is_thread_reply else "message"
+    push_event("slack", event_type, raw_json)
+    logger.info("Queued Slack %s from channel %s", event_type, event.get("channel"))
 
 
 def run_slack_connector() -> None:

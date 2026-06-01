@@ -2,7 +2,7 @@
 
 > A self-updating technical wiki that turns GitHub PRs, Slack conversations, Linear tickets, local code changes, and your Obsidian knowledge vault into a searchable, structured knowledge base — automatically.
 
-PulseWiki runs a hybrid local/cloud LLM pipeline that watches your team's activity streams, distills them into module-level Obsidian wiki pages, and exposes everything as a FastMCP server so Cursor can query your codebase context without scanning files.
+PulseWiki runs a hybrid local/cloud LLM pipeline that watches your team's activity streams, distills them into module-level Obsidian wiki pages, and exposes everything as a FastMCP server so any MCP client (VS Code, Claude Code, Cursor, and others) can query project context without scanning files.
 
 ---
 
@@ -15,7 +15,7 @@ Developer knowledge lives in too many places at once: PR descriptions, Slack thr
 - **Watches** GitHub PRs, Slack channels, Linear tickets, local file changes, and your Obsidian wiki notes (daily digest)
 - **Distills** each event through a local Qwen model (free, private, fast) — classifies which code modules are affected, summarises the change, appends it to the right wiki page
 - **Creates** new wiki pages via a cloud model (Qwen Cloud / Claude / DeepSeek) only when a module is seen for the first time — so cloud cost stays near zero
-- **Exposes** the entire wiki as a FastMCP server, letting Cursor call `search_wiki("redis session")` instead of grepping thousands of files
+- **Exposes** the entire wiki as a FastMCP server, letting MCP clients call `search_wiki("redis session")` instead of grepping thousands of files
 
 ---
 
@@ -51,7 +51,7 @@ flowchart TD
 
     WIKI["Obsidian Wiki\nwiki/module.md\nYAML frontmatter"]
     MCP["MCP Server\nmcp_server.py stdio\n6 tools"]
-    IDE["Cursor"]
+    IDE["MCP Clients\nVS Code · Claude Code · Cursor"]
 
     GH-->GH_C; SL-->SL_C; LI-->LI_C; FS-->LS_C; KB-->KB_C; CLI-->ID
     GH_C & SL_C & LI_C & LS_C & KB_C & ID --> DB
@@ -126,7 +126,7 @@ git diff HEAD~1 | uv run python scripts/ingest_diff.py \
 uv run python scripts/resource_mgr.py list   # see indexed wiki modules
 ```
 
-**Connect to Cursor** — open this repo in Cursor. Project MCP config is **`.cursor/mcp.json`** (already in the repo). Enable **Settings → MCP → pulse-wiki**. If you cloned elsewhere, update the absolute path in `args`:
+**Connect from any MCP client** — the server is standard FastMCP over stdio. This repo ships **`.cursor/mcp.json`** as one ready-to-use client config. If you cloned elsewhere, update the absolute path in `args`:
 
 ```json
 {
@@ -139,7 +139,7 @@ uv run python scripts/resource_mgr.py list   # see indexed wiki modules
 }
 ```
 
-In Cursor chat, ask: *「用 pulse-wiki 搜索 redis session」* or *「读取 auth/session 模块」*.
+In any MCP-enabled chat client, ask: *"search redis session in pulse-wiki"* or *"read auth/session module"*.
 
 ---
 
@@ -152,7 +152,7 @@ In Cursor chat, ask: *「用 pulse-wiki 搜索 redis session」* or *「读取 a
 uv run python scripts/resource_mgr.py llm
 ```
 
-Restart `worker.py` (reload Cursor MCP if you changed `mcp.json`) after changing model names. `resource_mgr.py cloud|db` rewrites `.env` and calls `reload_settings()` automatically.
+Restart `worker.py` (and reload your MCP client if you changed its MCP config) after changing model names. `resource_mgr.py cloud|db` rewrites `.env` and calls `reload_settings()` automatically.
 
 ### LLM Backends
 
@@ -198,9 +198,9 @@ All data sources are **optional**. The poller is the easiest way to get started 
 
 ---
 
-## MCP Tools (Cursor)
+## MCP Tools (Any MCP Client)
 
-Once the MCP server is registered, Cursor can call:
+Once the MCP server is registered, any MCP client can call:
 
 ```
 search_wiki("redis session token")          → FTS5 search across all wiki content
@@ -209,6 +209,7 @@ list_modules(tag="redis")                   → browse all indexed modules
 get_recent_changes("7d")                    → what changed in the last 7 days
 update_module("auth/session", "Known Issues", "- token refresh race condition")
 get_pipeline_status_tool()                  → queue health: pending / failed / last run
+get_runbooks("auth/session")                → operational runbook for a module
 ```
 
 ---
@@ -218,8 +219,8 @@ get_pipeline_status_tool()                  → queue health: pending / failed /
 ```
 pulse-wiki/
 ├── .cursor/
-│   └── mcp.json                ← Cursor MCP config (stdio → mcp_server.py)
-├── AGENTS.md                   ← developer quick-start (Cursor workflow)
+│   └── mcp.json                ← Example MCP client config (stdio → mcp_server.py)
+├── AGENTS.md                   ← developer quick-start
 ├── scripts/
 │   ├── config.py               ← all settings from .env (pydantic-settings)
 │   ├── db.py                   ← SQLite: event queue, module index, FTS5 search
@@ -235,7 +236,7 @@ pulse-wiki/
 │   │   └── knowledge_base_scanner.py ← Obsidian vault wiki/ scanner
 │   ├── wiki/
 │   │   └── manager.py          ← read/write Obsidian .md with YAML frontmatter
-│   ├── mcp_server.py           ← FastMCP stdio server (6 tools for Cursor)
+│   ├── mcp_server.py           ← FastMCP stdio server (7 tools)
 │   ├── ingest_diff.py          ← CLI: push diff manually + AST syntax validation
 │   └── resource_mgr.py         ← CLI: init / status / list / cloud / db / dev
 ├── tests/                      ← 48 tests
@@ -260,7 +261,7 @@ pulse-wiki/
 uv run pytest -v
 ```
 
-49 tests covering config loading, SQLite operations, FTS5 search, wiki manager, LLM routing, all connectors, MCP tools, and an end-to-end integration test.
+61 tests covering config loading, SQLite operations, FTS5 search, wiki manager, LLM routing, all connectors, MCP tools, and an end-to-end integration test.
 
 ---
 
@@ -277,9 +278,10 @@ Full index: **[docs/README.md](docs/README.md)**
 | [docs/DEMO.md](docs/DEMO.md) | **录屏流程**：问题、分镜、每步命令与系统效果 |
 | [docs/github-setup.md](docs/github-setup.md) | GitHub token, poller vs webhook, ngrok for realtime |
 | [docs/github-actions-setup.md](docs/github-actions-setup.md) | Self-hosted runner, daily Obsidian knowledge digest |
+| [docs/github-slack-wiki-verification.md](docs/github-slack-wiki-verification.md) | End-to-end GitHub/Slack -> wiki -> MCP verification |
 | [docs/knowledge-base-verification.md](docs/knowledge-base-verification.md) | E2E checklist (scan → distill → dedup) |
 
-**Scripts:** `demo.sh` (MVP demo) · `dev_up.sh` (debug, single-event) — see [Development & debugging](#development--debugging-dev_upsh) above.
+**Scripts:** `demo.sh` (MVP demo) · `dev_up.sh` (debug, single-event) · `scripts/verify_mcp_ingest.sh` (synthetic GitHub/Slack ingestion verification).
 
 ---
 

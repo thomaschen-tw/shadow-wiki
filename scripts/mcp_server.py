@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from fastmcp import FastMCP
-from fastmcp.tools.function_tool import FunctionTool
+from fastmcp.tools.tool import FunctionTool  # noqa: F401 — fastmcp 3.x location
 
 from scripts.db import get_connection, get_pipeline_status, search_modules_fts
 from scripts.wiki.manager import append_to_section, module_exists, read_module
@@ -96,8 +96,22 @@ def get_pipeline_status_tool() -> dict:
     return get_pipeline_status()
 
 
+def get_runbooks(path: str) -> str:
+    """Get the Runbooks section of a wiki module. Returns procedures generated from Known Issues."""
+    post = read_module(path)
+    if post is None:
+        return f"Module '{path}' not found."
+    content = post.content
+    if "## Runbooks" not in content:
+        return f"No runbook yet for '{path}'. Runbooks are auto-generated when Known Issues accumulates 2+ entries."
+    start = content.index("## Runbooks") + len("## Runbooks")
+    next_h2 = content.find("\n## ", start)
+    section = content[start:next_h2].strip() if next_h2 != -1 else content[start:].strip()
+    return f"# Runbooks — {path}\n\n{section}"
+
+
 # Register all tools with the MCP server
-for _fn in [search_wiki, get_module, list_modules, get_recent_changes, update_module, get_pipeline_status_tool]:
+for _fn in [search_wiki, get_module, list_modules, get_recent_changes, update_module, get_pipeline_status_tool, get_runbooks]:
     mcp.add_tool(FunctionTool.from_function(_fn))
 
 

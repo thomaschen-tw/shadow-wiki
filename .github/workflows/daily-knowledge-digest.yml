@@ -2,13 +2,15 @@ name: Daily Knowledge Digest
 
 on:
   schedule:
-    - cron: '0 1 * * *'   # 01:00 UTC = 09:00 CST
+    - cron: '0 2 * * *'   # 02:00 UTC = 10:00 Asia/Shanghai (UTC+8)
   workflow_dispatch:        # manual trigger from GitHub UI → Actions tab
 
 jobs:
   digest:
     runs-on: self-hosted    # your Mac with access to local knowledge_base
     timeout-minutes: 60
+    env:
+      TZ: Asia/Shanghai
 
     steps:
       - name: Checkout repo

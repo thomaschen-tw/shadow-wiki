@@ -31,6 +31,20 @@ SYNTHESIZE_SYSTEM = (
     "Format as structured markdown."
 )
 
+REVIEW_SYNTHESIS_SYSTEM = (
+    "You are a technical wiki maintainer. Summarise a code review discussion into a concise changelog entry. "
+    "Format as 2-4 markdown bullet points capturing: what was reviewed, key feedback, and the outcome. "
+    "Do not repeat the date, PR number, or reviewer name — those are added automatically."
+)
+
+RUNBOOK_SYSTEM = (
+    "You are a senior site reliability engineer writing operational runbooks. "
+    "Based on the module's wiki content, write a practical runbook with numbered step-by-step procedures. "
+    "Include: prerequisites, steps, expected outcomes, and rollback instructions where applicable. "
+    "Focus on patterns visible in Known Issues and Recent Changes. "
+    "Format as structured markdown with a short intro followed by numbered procedure blocks."
+)
+
 QUERY_SYSTEM = (
     "You are a search assistant for a technical wiki. "
     "Expand the query into search keywords. "
@@ -61,6 +75,21 @@ def create_page_prompt(module_path: str, events_summary: str) -> str:
 def synthesize_prompt(module_path: str, recent_events: list[str]) -> str:
     events_text = "\n---\n".join(recent_events[:10])
     return f"Module: {module_path}\n\nRecent changes:\n{events_text}"
+
+
+def review_synthesis_prompt(reviewer: str, state: str, body: str, pr_title: str) -> str:
+    return (
+        f"PR: {pr_title}\n"
+        f"Reviewer: {reviewer} — {state}\n"
+        f"Review body:\n{body[:2000]}"
+    )
+
+
+def runbook_prompt(module_path: str, module_content: str) -> str:
+    return (
+        f"Module: {module_path}\n\n"
+        f"Wiki content:\n{module_content[:3000]}"
+    )
 
 
 def query_expand_prompt(user_query: str) -> str:

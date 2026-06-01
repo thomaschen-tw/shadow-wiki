@@ -5,14 +5,15 @@ from scripts.config import get_settings
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS events (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    source       TEXT NOT NULL,
-    event_type   TEXT NOT NULL,
-    raw_json     TEXT NOT NULL,
-    status       TEXT NOT NULL DEFAULT 'pending',
-    error        TEXT,
-    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    processed_at TIMESTAMP
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    source          TEXT NOT NULL,
+    event_type      TEXT NOT NULL,
+    raw_json        TEXT NOT NULL,
+    status          TEXT NOT NULL DEFAULT 'pending',
+    error           TEXT,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    processed_at    TIMESTAMP,
+    parent_event_id INTEGER REFERENCES events(id)
 );
 
 CREATE TABLE IF NOT EXISTS modules (
@@ -56,13 +57,23 @@ def get_connection():
 def init_db() -> None:
     with get_connection() as conn:
         conn.executescript(_SCHEMA)
+        # Migration: add parent_event_id to existing databases
+        try:
+            conn.execute("ALTER TABLE events ADD COLUMN parent_event_id INTEGER REFERENCES events(id)")
+        except Exception:
+            pass  # column already exists
 
 
-def push_event(source: str, event_type: str, raw_json: str) -> int:
+def push_event(
+    source: str,
+    event_type: str,
+    raw_json: str,
+    parent_event_id: int | None = None,
+) -> int:
     with get_connection() as conn:
         cursor = conn.execute(
-            "INSERT INTO events (source, event_type, raw_json) VALUES (?, ?, ?)",
-            (source, event_type, raw_json),
+            "INSERT INTO events (source, event_type, raw_json, parent_event_id) VALUES (?, ?, ?, ?)",
+            (source, event_type, raw_json, parent_event_id),
         )
         return cursor.lastrowid
 

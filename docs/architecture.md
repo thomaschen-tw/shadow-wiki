@@ -57,7 +57,7 @@
 │                    known_issues, slack_threads, tags                  │
 │                                                                       │
 │  Sections: ## Overview  ## Recent Changes  ## Known Issues           │
-│            ## Related Modules                                         │
+│            ## Related Modules  ## Runbooks                            │
 └─────────────────────────────┬─────────────────────────────────────────┘
                                │
                                ▼
@@ -67,12 +67,13 @@
 │  search_wiki(query)          get_module(path)                        │
 │  list_modules(tag)           get_recent_changes(since)               │
 │  update_module(path,section) get_pipeline_status_tool()              │
+│  get_runbooks(path)                                                  │
 └─────────────────────────────┬─────────────────────────────────────────┘
                                │  MCP protocol
                                ▼
                     ┌─────────────────────┐
-                    │     Cursor      │
-                    │  (developer terminal)│
+                    │  MCP clients    │
+                    │ VS Code / Claude / Cursor │
                     └─────────────────────┘
 ```
 
@@ -118,7 +119,7 @@ flowchart TD
         MCP["mcp_server.py\nFastMCP stdio\n6 tools"]
     end
 
-    CC["Cursor\n(developer)"]
+    CC["MCP client\n(developer)"]
 
     GH --> GH_C
     SL --> SL_C
@@ -171,5 +172,5 @@ flowchart TD
    a. module_exists? No → call_llm(CREATE_PAGE) → write wiki/auth/session.md
    b. module_exists? Yes → call_llm(APPEND) → prepend to ## Recent Changes
 6. update_fts() → SQLite FTS5 index refreshed
-7. Cursor calls search_wiki("session token") → MCP returns snippet
+7. MCP client calls search_wiki("session token") → MCP returns snippet
 ```

@@ -3,6 +3,8 @@
 PulseWiki uses a **self-hosted runner** so GitHub Actions jobs run on your Mac and
 can access your local Obsidian vault. This is a one-time setup (~10 minutes).
 
+Daily workflow schedule is **10:00 Asia/Shanghai** (`0 2 * * *` in UTC cron).
+
 ---
 
 ## Why Self-Hosted?
@@ -80,6 +82,13 @@ uv run python test_env.py
 1. Go to **GitHub → Actions → Daily Knowledge Digest**
 2. Click **Run workflow → Run workflow**
 3. Watch the logs — each step should show green
+
+If a run is stuck for 24h with:
+
+`The job has exceeded the maximum execution time while awaiting a runner for 24h0m0s`
+
+your self-hosted runner is offline or not assigned to this repo.
+Check **Settings → Actions → Runners** and start the service with `./svc.sh start`.
 
 Expected output in the "Distill notes" step:
 ```

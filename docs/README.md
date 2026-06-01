@@ -9,6 +9,7 @@
 | [architecture-roadmap.md](architecture-roadmap.md) | Architects | Production gaps, P0/P1/P2 backlog |
 | [github-setup.md](github-setup.md) | GitHub ingest | Token, poller vs webhook, ngrok |
 | [github-actions-setup.md](github-actions-setup.md) | CI / Mac runner | Daily knowledge digest workflow |
+| [github-slack-wiki-verification.md](github-slack-wiki-verification.md) | QA / Operators | End-to-end verification for GitHub PR + Slack comments -> wiki |
 | [knowledge-base-verification.md](knowledge-base-verification.md) | QA | E2E checklist for Obsidian `wiki/` scanner |
 | [DEMO.md](DEMO.md) | Hackathon / video | **录屏流程文件**：问题陈述、分镜、每步命令与预期效果 |
 

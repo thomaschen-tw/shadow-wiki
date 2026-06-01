@@ -83,7 +83,37 @@ async def github_webhook(request: Request):
             "author": comment.get("user", {}).get("login", ""),
             "path": comment.get("path", ""),
             "diff_hunk": comment.get("diff_hunk", ""),
+            "url": comment.get("html_url", ""),
         }))
+        logger.info("Queued review comment on PR #%s", pr.get("number", ""))
+
+    elif event_type == "pull_request_review" and payload.get("action") == "submitted":
+        pr = payload.get("pull_request", {})
+        review = payload.get("review", {})
+        state = review.get("state", "").upper()  # APPROVED | CHANGES_REQUESTED | COMMENTED
+        push_event("github", "pr_review", json.dumps({
+            "pr_number": pr.get("number", ""),
+            "title": pr.get("title", ""),
+            "reviewer": review.get("user", {}).get("login", ""),
+            "state": state,
+            "body": review.get("body") or "",
+            "url": review.get("html_url", ""),
+        }))
+        logger.info("Queued PR review (%s) on PR #%s", state, pr.get("number", ""))
+
+    elif event_type == "issue_comment" and payload.get("action") in ("created", "edited"):
+        # Only handle comments on pull requests (issues that have a pull_request field)
+        issue = payload.get("issue", {})
+        if "pull_request" in issue:
+            comment = payload.get("comment", {})
+            push_event("github", "pr_comment", json.dumps({
+                "pr_number": issue.get("number", ""),
+                "title": issue.get("title", ""),
+                "user": comment.get("user", {}).get("login", ""),
+                "body": comment.get("body", ""),
+                "url": comment.get("html_url", ""),
+            }))
+            logger.info("Queued PR comment on #%s", issue.get("number", ""))
 
     return {"status": "ok"}
 

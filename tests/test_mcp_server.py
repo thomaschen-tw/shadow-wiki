@@ -90,3 +90,34 @@ def test_get_recent_changes_invalid_format(tmp_db):
     results = get_recent_changes("bad-format")
     assert len(results) == 1
     assert "error" in results[0]
+
+
+def test_get_runbooks_returns_section(tmp_db):
+    from scripts.db import init_db
+    from scripts.wiki.manager import create_module, append_to_section
+    init_db()
+    create_module("api/users", "## Overview\n\n## Known Issues\n\n## Runbooks\n\n### 2026-06-01\n\n1. Restart the worker.\n")
+
+    from scripts.mcp_server import get_runbooks
+    result = get_runbooks("api/users")
+    assert "Runbooks" in result
+    assert "Restart the worker" in result
+
+
+def test_get_runbooks_missing_section(tmp_db):
+    from scripts.db import init_db
+    from scripts.wiki.manager import create_module
+    init_db()
+    create_module("api/users", "## Overview\n\n## Known Issues\n\n")
+
+    from scripts.mcp_server import get_runbooks
+    result = get_runbooks("api/users")
+    assert "No runbook yet" in result
+
+
+def test_get_runbooks_module_not_found(tmp_db):
+    from scripts.db import init_db
+    init_db()
+    from scripts.mcp_server import get_runbooks
+    result = get_runbooks("does/not/exist")
+    assert "not found" in result.lower()

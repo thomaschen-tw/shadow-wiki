@@ -1,6 +1,6 @@
 # PulseWiki — Standard Operating Procedure
 
-> **What it does:** Watches GitHub PRs, Slack channels, Linear tickets, and local code files. Distills them into a module-level Obsidian wiki via a local Qwen model (LM Studio / Ollama) for routine updates and a cloud model (Claude / Qwen Cloud / DeepSeek) for new-page synthesis. Exposes the wiki as a FastMCP server so Cursor can search it without scanning the full codebase.
+> **What it does:** Watches GitHub PRs, Slack channels, Linear tickets, and local code files. Distills them into a module-level Obsidian wiki via a local Qwen model (LM Studio / Ollama) for routine updates and a cloud model (Claude / Qwen Cloud / DeepSeek) for new-page synthesis. Exposes the wiki as a FastMCP server so VS Code, Claude Code, Cursor, and other MCP clients can search it without scanning the full codebase.
 
 ---
 
@@ -11,7 +11,7 @@
 3. [Configuration (.env)](#3-configuration)
 4. [Data Source Setup](#4-data-source-setup)
 5. [Starting the System](#5-starting-the-system)
-6. [Cursor MCP Integration](#6-claude-code-mcp-integration)
+6. [MCP Client Integration](#6-mcp-client-integration)
 7. [Daily Operations](#7-daily-operations)
 8. [Switching LLM Backends](#8-switching-llm-backends)
 9. [MCP Tool Reference](#9-mcp-tool-reference)
@@ -246,7 +246,7 @@ for e in get_pending_events(limit=200):
 uv run python scripts/resource_mgr.py list   # expect wiki/knowledge/… paths
 ```
 
-**Automated daily run:** Workflow `.github/workflows/daily-knowledge-digest.yml` runs at 09:00 CST on the self-hosted runner: scan → distill → `git commit` `wiki/` → push. Trigger manually from GitHub → Actions → **Daily Knowledge Digest** → Run workflow.
+**Automated daily run:** Workflow `.github/workflows/daily-knowledge-digest.yml` runs at 10:00 Asia/Shanghai (02:00 UTC) on the self-hosted runner: scan → distill → `git commit` `wiki/` → push. Trigger manually from GitHub → Actions → **Daily Knowledge Digest** → Run workflow.
 
 **Dedup:** Stage 1 skips files whose MD5 is unchanged. Stage 2 skips files whose token overlap with the last processed snapshot exceeds `KNOWLEDGE_BASE_SIMILARITY_THRESHOLD` (default 0.85). Re-queue everything once with `--force --once`.
 
@@ -294,13 +294,13 @@ python scripts/ingest/linear_connector.py &
 python scripts/ingest/local_scanner.py &
 ```
 
-### Step 5 — Start the MCP server (for Cursor)
+### Step 5 — Start the MCP server (for any MCP client)
 
 ```bash
 python scripts/mcp_server.py
 ```
 
-This runs in stdio mode. Cursor starts it via `.cursor/mcp.json` — you don't need to run it manually during normal use.
+This runs in stdio mode. Any MCP client can start it using its own MCP config. This repo provides `.cursor/mcp.json` as one example.
 
 ### Minimal Setup (no cloud keys, demo only)
 
@@ -316,13 +316,13 @@ echo "+def hello(): pass" | python scripts/ingest_diff.py --diff - --pr 1 --titl
 
 ---
 
-## 6. Cursor MCP Integration
+## 6. MCP Client Integration
 
 ### 6.1 Register the MCP server
 
-The repo ships **`.cursor/mcp.json`**. Open the project in Cursor and enable **Settings → MCP → pulse-wiki**.
+The repo ships **`.cursor/mcp.json`** as an example client config.
 
-To override or use user-level config, add the same block to `~/.cursor/mcp.json`:
+For Cursor, you can also add the same block to `~/.cursor/mcp.json`:
 
 ```json
 {
@@ -337,11 +337,11 @@ To override or use user-level config, add the same block to `~/.cursor/mcp.json`
 
 Replace `/absolute/path/to/pulse-wiki` with the real path (e.g. `/Users/you/Documents/obsidian/pulse-wiki`).
 
-Reload MCP if you edit the file. Verify under **Cursor Settings → MCP** that `pulse-wiki` is enabled and connected.
+Reload MCP after editing your client config. In Cursor, verify under **Settings → MCP** that `pulse-wiki` is enabled and connected.
 
-### 6.2 Using the wiki in Cursor
+### 6.2 Using the wiki in any MCP client
 
-Once connected, Cursor can call:
+Once connected, your MCP client can call:
 
 ```
 search_wiki("session token")        → find relevant modules
@@ -349,10 +349,11 @@ get_module("auth/session")          → read full module page
 list_modules()                      → browse all modules
 get_recent_changes("7d")            → what changed this week
 get_pipeline_status_tool()          → check queue health
+get_runbooks("auth/session")         → operational runbook for a module
 update_module("auth/session", "Known Issues", "- token refresh race condition")
 ```
 
-Cursor uses these automatically when context about the codebase is needed. You can also invoke them explicitly with natural language:
+MCP-enabled tools can use these automatically when context about the codebase is needed. You can also invoke them explicitly with natural language:
 
 > "Check pulse-wiki for anything related to authentication before I change this file."
 
@@ -457,7 +458,7 @@ uv run python scripts/distill/worker.py
 
 ## 9. MCP Tool Reference
 
-All tools are available in Cursor once the MCP server is registered.
+All tools are available to any MCP client once the MCP server is registered.
 
 ### `search_wiki(query, limit=5)`
 Full-text search across all wiki content. Uses FTS5 trigram with an OR-token fallback for multi-word queries.
@@ -510,6 +511,14 @@ get_pipeline_status_tool()
 → {"pending": 0, "failed": 0, "last_processed": "2026-05-27T14:32:11"}
 ```
 
+### `get_runbooks(path)`
+Returns the `## Runbooks` section of a module. Runbooks are auto-generated when a module accumulates 2+ Known Issues entries.
+
+```
+get_runbooks("auth/session")
+→ "# Runbooks — auth/session\n\n### 2026-06-01\n\n1. Restart the worker..."
+```
+
 ---
 
 ## 10. Architecture Reference
@@ -553,7 +562,7 @@ get_pipeline_status_tool()
 │  YAML frontmatter: module, last_updated, recent_prs,     │
 │  owners, known_issues, slack_threads, tags               │
 │  Sections: Overview │ Recent Changes │ Known Issues      │
-│            Related Modules                               │
+│            Related Modules │ Runbooks                   │
 └────────────────────────────┬─────────────────────────────┘
                              │
                              ▼
@@ -565,7 +574,7 @@ get_pipeline_status_tool()
                              │  MCP protocol
                              ▼
                     ┌─────────────────┐
-                    │   Cursor   │
+                    │ MCP Client │
                     │  (developer     │
                     │   terminal)     │
                     └─────────────────┘

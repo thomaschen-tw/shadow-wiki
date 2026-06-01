@@ -16,6 +16,7 @@ class TaskType(Enum):
     QUERY       = "query"
     CREATE_PAGE = "create_page"
     SYNTHESIZE  = "synthesize"
+    RUNBOOK     = "runbook"
 
 
 _LOCAL_TASKS = {TaskType.CLASSIFY, TaskType.SUMMARIZE, TaskType.APPEND, TaskType.QUERY}

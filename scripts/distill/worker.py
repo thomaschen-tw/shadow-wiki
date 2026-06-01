@@ -13,14 +13,16 @@ from scripts.distill.llm_router import TaskType, call_llm
 from scripts.distill.prompts import (
     # Code prompts
     CLASSIFY_SYSTEM, SUMMARIZE_SYSTEM, APPEND_SYSTEM, CREATE_PAGE_SYSTEM,
+    SYNTHESIZE_SYSTEM, REVIEW_SYNTHESIS_SYSTEM, RUNBOOK_SYSTEM,
     classify_prompt, summarize_prompt, append_prompt, create_page_prompt,
+    synthesize_prompt, review_synthesis_prompt, runbook_prompt,
     # Knowledge prompts
     KNOWLEDGE_CLASSIFY_SYSTEM, KNOWLEDGE_SUMMARIZE_SYSTEM,
     KNOWLEDGE_CREATE_PAGE_SYSTEM, KNOWLEDGE_APPEND_SYSTEM,
     knowledge_classify_prompt, knowledge_summarize_prompt,
     knowledge_create_page_prompt, knowledge_append_prompt,
 )
-from scripts.wiki.manager import append_to_section, create_module, module_exists, read_module
+from scripts.wiki.manager import append_to_section, create_module, module_exists, read_module, update_frontmatter
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +56,85 @@ def run_worker(poll_interval: int = 30) -> None:
 def _handle_event(event) -> None:
     if event["source"] == "knowledge_base":
         _handle_knowledge_event(event)
+    elif event["source"] == "slack" and event["event_type"] == "thread_reply":
+        _handle_slack_thread_reply(event)
+    elif event["source"] == "github" and event["event_type"] in ("pr_review", "pr_comment"):
+        _handle_review_event(event)
     else:
         _handle_code_event(event)
+
+
+# ── Slack thread reply handler ───────────────────────────────────────────────
+
+def _handle_slack_thread_reply(event) -> None:
+    raw = json.loads(event["raw_json"])
+    body = raw.get("body", "")
+    channel = raw.get("channel", "")
+    thread_ts = raw.get("thread_ts", "")
+    user = raw.get("user", "")
+
+    if not body.strip():
+        logger.info("Skipping empty thread reply from channel %s", channel)
+        return
+
+    # Classify which module(s) this thread discussion is about
+    modules_json = call_llm(TaskType.CLASSIFY, classify_prompt(body), CLASSIFY_SYSTEM)
+    modules = _parse_json_list(modules_json, default=["general"])
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    thread_ref = f"slack:{channel}:{thread_ts}" if thread_ts else f"slack:{channel}"
+    entry = f"**Thread** `{thread_ref}` — {body[:500]}"
+
+    for module_path in modules:
+        if not module_exists(module_path):
+            logger.info("Module %s not found for thread reply — skipping", module_path)
+            continue
+
+        # Append to Slack Discussions section
+        append_to_section(module_path, "Slack Discussions", entry)
+
+        # Update slack_threads frontmatter (deduplicated)
+        post = read_module(module_path)
+        if post is not None:
+            existing_threads = list(post.get("slack_threads", []))
+            if thread_ref not in existing_threads:
+                update_frontmatter(module_path, {"slack_threads": [thread_ref] + existing_threads[:9]})
+
+        logger.info("Appended Slack thread reply to %s", module_path)
+
+
+# ── GitHub review / PR comment handler ──────────────────────────────────────
+
+def _handle_review_event(event) -> None:
+    raw = json.loads(event["raw_json"])
+    event_type = event["event_type"]
+    pr_number = raw.get("pr_number", "")
+    pr_ref = f"#{pr_number}" if pr_number else "unknown"
+    pr_title = raw.get("title", "")
+
+    if event_type == "pr_review":
+        reviewer = raw.get("reviewer", "")
+        state = raw.get("state", "")
+        body = raw.get("body", "")
+        content = f"{pr_title} — {state} by {reviewer}: {body}"
+        synthesis_prompt = review_synthesis_prompt(reviewer, state, body, pr_title)
+    else:  # pr_comment
+        user = raw.get("user", "")
+        body = raw.get("body", "")
+        content = f"{pr_title}: {body}"
+        synthesis_prompt = review_synthesis_prompt(user, "COMMENT", body, pr_title)
+
+    modules_json = call_llm(TaskType.CLASSIFY, classify_prompt(content), CLASSIFY_SYSTEM)
+    modules = _parse_json_list(modules_json, default=["general"])
+
+    entry = call_llm(TaskType.APPEND, synthesis_prompt, REVIEW_SYNTHESIS_SYSTEM)
+
+    for module_path in modules:
+        if not module_exists(module_path):
+            logger.info("Module %s not found for review event — skipping", module_path)
+            continue
+        append_to_section(module_path, "Recent Changes", entry, pr_ref)
+        logger.info("Appended %s to %s", event_type, module_path)
 
 
 # ── Code event handler (GitHub / Slack / Linear / manual diff) ───────────────
@@ -102,6 +181,16 @@ def _handle_code_event(event) -> None:
                 APPEND_SYSTEM,
             )
             append_to_section(module_path, "Recent Changes", entry, pr_ref)
+
+            # Post-append triggers: synthesis every 5 entries, runbook when issues accumulate
+            updated = read_module(module_path)
+            if updated:
+                rc_count = _count_section_entries(updated.content, "Recent Changes")
+                if rc_count > 0 and rc_count % 5 == 0:
+                    _maybe_synthesize(module_path, updated.content)
+                ki_count = _count_section_entries(updated.content, "Known Issues")
+                if ki_count >= 2 and "## Runbooks" not in updated.content:
+                    _maybe_generate_runbook(module_path, updated.content)
 
 
 # ── Knowledge event handler (Obsidian wiki notes) ────────────────────────────
@@ -173,6 +262,48 @@ def _handle_knowledge_event(event) -> None:
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _count_section_entries(content: str, section: str) -> int:
+    """Count ### subsection entries within a ## section."""
+    header = f"## {section}"
+    if header not in content:
+        return 0
+    start = content.index(header) + len(header)
+    next_h2 = content.find("\n## ", start)
+    section_text = content[start:next_h2] if next_h2 != -1 else content[start:]
+    return section_text.count("\n### ")
+
+
+def _maybe_synthesize(module_path: str, content: str) -> None:
+    """Synthesize recent changes into the Overview section (every 5 appends)."""
+    try:
+        recent_entries = content.split("## Recent Changes", 1)[-1].split("\n### ")[1:6]
+        if not recent_entries:
+            return
+        entry = call_llm(
+            TaskType.SYNTHESIZE,
+            synthesize_prompt(module_path, recent_entries),
+            SYNTHESIZE_SYSTEM,
+        )
+        append_to_section(module_path, "Overview", entry)
+        logger.info("Synthesized overview for %s", module_path)
+    except Exception as exc:
+        logger.warning("Synthesis failed for %s: %s", module_path, exc)
+
+
+def _maybe_generate_runbook(module_path: str, content: str) -> None:
+    """Generate a Runbooks section when Known Issues has accumulated 2+ entries."""
+    try:
+        entry = call_llm(
+            TaskType.RUNBOOK,
+            runbook_prompt(module_path, content),
+            RUNBOOK_SYSTEM,
+        )
+        append_to_section(module_path, "Runbooks", entry)
+        logger.info("Generated runbook for %s", module_path)
+    except Exception as exc:
+        logger.warning("Runbook generation failed for %s: %s", module_path, exc)
+
 
 def _slugify(text: str) -> str:
     text = text.lower().strip()
