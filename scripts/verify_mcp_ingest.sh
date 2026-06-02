@@ -21,6 +21,7 @@ ENQUEUE_ONLY=false
 MODULE_PATH="general"
 QUERY="session retry"
 SINCE="1d"
+VERBOSE=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -38,6 +39,9 @@ while [[ $# -gt 0 ]]; do
       SINCE="${2:?--since requires time window like 1d or 24h}"
       shift
       ;;
+        --verbose)
+            VERBOSE=true
+            ;;
     --help|-h)
       echo "Verify MCP ingestion/retrieval."
       echo ""
@@ -46,6 +50,7 @@ while [[ $# -gt 0 ]]; do
       echo "  bash scripts/verify_mcp_ingest.sh --module auth/session --query issue --since 7d"
       echo "  bash scripts/verify_mcp_ingest.sh --test"
       echo "  bash scripts/verify_mcp_ingest.sh --test --enqueue-only"
+            echo "  bash scripts/verify_mcp_ingest.sh --verbose"
       exit 0
       ;;
     *)
@@ -216,19 +221,125 @@ else
 fi
 
 echo "==> MCP/data verification summary"
-MODULE_PATH="$MODULE_PATH" QUERY="$QUERY" SINCE="$SINCE" uv run python - <<'PY'
+MODULE_PATH="$MODULE_PATH" QUERY="$QUERY" SINCE="$SINCE" VERBOSE="$VERBOSE" uv run python - <<'PY'
 import json
 import os
+import re
+from datetime import datetime, timedelta
 from scripts.db import get_connection
 from scripts.mcp_server import get_module, get_recent_changes, search_wiki
+from scripts.config import get_settings
 
 module_path = os.environ.get("MODULE_PATH", "general")
 query = os.environ.get("QUERY", "session retry")
 since = os.environ.get("SINCE", "1d")
+verbose = os.environ.get("VERBOSE", "false").lower() == "true"
+
+def _cut(v: str, n: int = 110) -> str:
+    v = v or ""
+    return v if len(v) <= n else v[:n] + "..."
+
+if verbose:
+    print("\n--- Runtime context ---")
+    s = get_settings()
+    print(f"db_path={s.db_path}")
+    print(f"github_repo={s.github_repo}")
+    print(f"local_backend={s.local_llm_backend} model={s.lmstudio_model}")
+
+    print("\n--- Queue snapshot (all statuses) ---")
+    with get_connection() as conn:
+        snap = conn.execute(
+            """
+            SELECT status, source, event_type, COUNT(*) c
+            FROM events
+            GROUP BY status, source, event_type
+            ORDER BY status, c DESC
+            """
+        ).fetchall()
+    for r in snap:
+        print(f"{r['status']:10} {r['source']:12} {r['event_type']:15} {r['c']}")
 
 print(f"\n--- Recent done events ({since}) ---")
 for row in get_recent_changes(since)[:12]:
     print(f"{row['source']}/{row['event_type']} | {row.get('title', '')}")
+
+print(f"\n--- REAL GitHub done events ({since}) ---")
+match = re.match(r"^(\d+)([dh])$", since)
+if match:
+    amount = int(match.group(1))
+    unit = match.group(2)
+    cutoff = datetime.now() - (timedelta(days=amount) if unit == 'd' else timedelta(hours=amount))
+else:
+    cutoff = datetime.now() - timedelta(days=1)
+
+with get_connection() as conn:
+    gh_rows = conn.execute(
+        """
+        SELECT event_type, raw_json, processed_at
+        FROM events
+        WHERE source='github' AND status='done'
+        ORDER BY id DESC LIMIT 100
+        """
+    ).fetchall()
+
+real_gh = []
+for r in gh_rows:
+    processed_at = r['processed_at']
+    if not processed_at:
+        continue
+    try:
+        processed_dt = datetime.fromisoformat(str(processed_at).replace('Z', '+00:00').replace(' ', 'T'))
+    except Exception:
+        continue
+    if processed_dt.replace(tzinfo=None) < cutoff:
+        continue
+
+    try:
+        raw = json.loads(r['raw_json'])
+    except Exception:
+        raw = {}
+    title = raw.get('title', '')
+    url = raw.get('url', '')
+    if not (title.startswith('Synthetic ') or ('example.invalid' in url)):
+        real_gh.append((r['event_type'], title, processed_at))
+
+if not real_gh:
+    print('No REAL GitHub done events in this window.')
+else:
+    for et, title, t in real_gh[:10]:
+        print(f"{et:13} {t} | {title}")
+
+if verbose:
+    print("\n--- Latest GitHub events (all statuses, latest 20) ---")
+    with get_connection() as conn:
+        latest = conn.execute(
+            """
+            SELECT id, status, event_type, created_at, processed_at, raw_json
+            FROM events
+            WHERE source='github'
+            ORDER BY id DESC LIMIT 20
+            """
+        ).fetchall()
+
+    if not latest:
+        print("No GitHub events in DB.")
+    else:
+        for r in latest:
+            try:
+                raw = json.loads(r['raw_json'])
+            except Exception:
+                raw = {}
+            title = raw.get('title', '')
+            body = _cut(raw.get('body', ''))
+            url = raw.get('url', '')
+            is_synthetic = title.startswith('Synthetic ') or ('example.invalid' in url)
+            marker = 'SYN' if is_synthetic else 'REAL'
+            ident = raw.get('pr_number', raw.get('issue_number', ''))
+            print(
+                f"{marker} id={r['id']:>4} {r['status']:<10} {r['event_type']:<13} "
+                f"created={r['created_at']} processed={r['processed_at']} ref={ident} "
+                f"title={_cut(title)} body={body}"
+            )
 
 print(f"\n--- Search '{query}' ---")
 rows = search_wiki(query, limit=8)
@@ -251,6 +362,8 @@ with get_connection() as conn:
 if not issue_rows:
     print("No GitHub issue/Q&A events yet.")
 else:
+    real_count = 0
+    synthetic_count = 0
     for r in issue_rows:
         try:
             raw = json.loads(r['raw_json'])
@@ -258,7 +371,20 @@ else:
             raw = {}
         title = raw.get('title', '')
         body = (raw.get('body', '') or '')[:80]
-        print(f"{r['status']:10} {r['event_type']:13} {r['created_at']} | {title} | {body}")
+        url = raw.get('url', '')
+        is_synthetic = title.startswith('Synthetic ') or ('example.invalid' in url)
+        marker = 'SYN' if is_synthetic else 'REAL'
+        if is_synthetic:
+            synthetic_count += 1
+        else:
+            real_count += 1
+        print(f"{marker} {r['status']:10} {r['event_type']:13} {r['created_at']} | {title} | {body}")
+
+    print(f"Summary: REAL={real_count}, SYNTHETIC={synthetic_count}")
+    if real_count == 0:
+        print("No REAL GitHub issue/Q&A events found in this window.")
+        print("Check: 1) github_connector is running, 2) webhook points to your reachable /webhook/github URL, 3) issue/issue_comment events are enabled in GitHub webhook settings.")
+        print("Hint: If connector is local (http://0.0.0.0:9000), GitHub cannot reach it directly without a public tunnel/domain.")
 
 print(f"\n--- Module preview: {module_path} ---")
 module_text = get_module(module_path)

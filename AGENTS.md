@@ -67,7 +67,7 @@ Event status lifecycle: `pending` → `processing` → `done` | `failed`
 
 ### Wiki / Frontmatter
 - Wiki files live at `wiki/{module_path}.md` where `module_path` uses `snake_case/with_slashes` (e.g. `auth/session`, `knowledge/ai/rag-vs-kag`).
-- Frontmatter keys: `module`, `last_updated`, `recent_prs`, `owners`, `known_issues`, `slack_threads`, `tags`.
+- Frontmatter keys: `module`, `last_updated`, `recent_prs`, `recent_events`, `owners`, `known_issues`, `slack_threads`, `tags`.
 - Standard sections: `## Overview`, `## Recent Changes`, `## Known Issues`, `## Related Modules`, `## Runbooks`; KB pages use `## Key Insights`.
 - `append_to_section()` top-prepends a `### {YYYY-MM-DD} ({pr_number})` subsection.
 

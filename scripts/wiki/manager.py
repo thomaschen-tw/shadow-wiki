@@ -9,6 +9,7 @@ _DEFAULT_METADATA = {
     "module": "",
     "last_updated": "",
     "recent_prs": [],
+    "recent_events": [],
     "owners": [],
     "known_issues": [],
     "slack_threads": [],
@@ -52,7 +53,11 @@ def create_module(module_path: str, body: str, summary: str | None = None) -> No
 
 
 def append_to_section(
-    module_path: str, section: str, content: str, pr_number: str | None = None
+    module_path: str,
+    section: str,
+    content: str,
+    pr_number: str | None = None,
+    source_meta: dict | None = None,
 ) -> None:
     post = read_module(module_path)
     if post is None:
@@ -78,10 +83,24 @@ def append_to_section(
 
     post.content = body
     post["last_updated"] = datetime.now().strftime("%Y-%m-%d")
+
     if pr_number:
         existing = post.get("recent_prs", [])
         if pr_number not in existing:
             post["recent_prs"] = [pr_number] + existing[:9]
+
+    # Structured event index for traceability and downstream analysis.
+    # Keep this append-only-ish list bounded to avoid frontmatter bloat.
+    if source_meta:
+        existing_events = list(post.get("recent_events", []))
+        dedupe_key = (
+            source_meta.get("url")
+            or source_meta.get("ref")
+            or f"{source_meta.get('platform', '')}:{source_meta.get('event_type', '')}:{source_meta.get('occurred_at', '')}"
+        )
+        source_meta = {**source_meta, "key": dedupe_key}
+        filtered = [e for e in existing_events if e.get("key") != dedupe_key]
+        post["recent_events"] = [source_meta] + filtered[:29]
 
     _save_and_index(module_path, post)
 
