@@ -11,6 +11,8 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_ROOT"
 export PYTHONPATH="$PROJECT_ROOT"
+# Avoid confusing uv warnings when another project's virtualenv is activated.
+unset VIRTUAL_ENV || true
 
 ENQUEUE_ONLY=false
 MODULE_PATH="general"
@@ -43,7 +45,7 @@ echo "==> Init database"
 uv run python scripts/resource_mgr.py init >/dev/null
 
 echo "==> Seed synthetic GitHub + Slack events"
-MODULE_PATH="$MODULE_PATH" uv run python - <<'PY'
+SEED_OUTPUT="$(MODULE_PATH="$MODULE_PATH" uv run python - <<'PY'
 import os
 import json
 from datetime import datetime
@@ -65,9 +67,12 @@ if not module_exists(module_path):
     )
 
 stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+seeded_ids = []
 
-# Code path event (github pr)
-push_event(
+# Synthetic source 1: a GitHub PR-style code event.
+# Real source in production: github_connector.py receives a pull_request webhook,
+# fetches the diff from GitHub, then stores a normalized event in db.events.
+seeded_ids.append(push_event(
     "github",
     "pr",
     json.dumps(
@@ -79,10 +84,11 @@ push_event(
             "body": "Adds safer session retry path.",
         }
     ),
-)
+))
 
-# Review path events
-push_event(
+# Synthetic source 2: a GitHub review event.
+# Real source in production: pull_request_review webhook -> event_type=pr_review.
+seeded_ids.append(push_event(
     "github",
     "pr_review",
     json.dumps(
@@ -95,9 +101,9 @@ push_event(
             "url": "https://example.invalid/pr/9001/review/1",
         }
     ),
-)
+))
 
-push_event(
+seeded_ids.append(push_event(
     "github",
     "pr_comment",
     json.dumps(
@@ -109,10 +115,12 @@ push_event(
             "url": "https://example.invalid/pr/9001#issuecomment-1",
         }
     ),
-)
+))
 
-# Slack paths
-push_event(
+# Synthetic source 3: a normal Slack channel message.
+# Real source in production: slack_connector.py receives a Socket Mode event and
+# stores it as source=slack, event_type=message.
+seeded_ids.append(push_event(
     "slack",
     "message",
     json.dumps(
@@ -125,9 +133,12 @@ push_event(
             "is_thread_reply": False,
         }
     ),
-)
+))
 
-push_event(
+# Synthetic source 4: a Slack thread reply.
+# Real source in production: slack_connector.py detects thread_ts != ts and
+# stores event_type=thread_reply, which worker.py writes into Slack Discussions.
+seeded_ids.append(push_event(
     "slack",
     "thread_reply",
     json.dumps(
@@ -140,11 +151,19 @@ push_event(
             "is_thread_reply": True,
             "reply_count": 1,
         }
-    ),
-)
+        ),
+))
 
 print("Synthetic events enqueued")
+print("SEEDED_IDS=" + ",".join(str(i) for i in seeded_ids))
 PY
+)"
+echo "$SEED_OUTPUT"
+SEEDED_IDS="$(echo "$SEED_OUTPUT" | awk -F= '/^SEEDED_IDS=/{print $2}' | tail -1)"
+if [[ -z "$SEEDED_IDS" ]]; then
+    echo "Failed to parse seeded event ids"
+    exit 1
+fi
 
 if $ENQUEUE_ONLY; then
   echo "==> Enqueue-only mode complete"
@@ -153,12 +172,24 @@ if $ENQUEUE_ONLY; then
 fi
 
 echo "==> Process pending events inline"
-uv run python - <<'PY'
-from scripts.db import get_pending_events, mark_event_processing
+SEEDED_IDS="$SEEDED_IDS" uv run python - <<'PY'
+import os
+from scripts.db import get_connection, mark_event_processing
 from scripts.distill.worker import process_event
 
-events = get_pending_events(limit=200)
-print(f"Processing {len(events)} events")
+seeded_ids = [int(x) for x in os.environ.get("SEEDED_IDS", "").split(",") if x.strip()]
+if not seeded_ids:
+    print("Processing 0 events (no seeded ids)")
+    raise SystemExit(0)
+
+q_marks = ",".join(["?"] * len(seeded_ids))
+with get_connection() as conn:
+    events = conn.execute(
+        f"SELECT * FROM events WHERE status='pending' AND id IN ({q_marks}) ORDER BY id",
+        tuple(seeded_ids),
+    ).fetchall()
+
+print(f"Processing {len(events)} events (seeded only)")
 for e in events:
     mark_event_processing(e["id"])
     process_event(e)
@@ -173,14 +204,17 @@ from scripts.mcp_server import get_module, get_recent_changes, search_wiki
 module_path = os.environ.get("MODULE_PATH", "general")
 
 print("\n--- Recent done events (1d) ---")
+# Reads processed rows from db.events so you can confirm queue consumption.
 for row in get_recent_changes("1d")[:8]:
     print(f"{row['source']}/{row['event_type']} | {row.get('title', '')}")
 
 print("\n--- Search 'session retry' ---")
+# Queries the FTS search index built from generated wiki pages.
 for row in search_wiki("session retry", limit=5):
     print(f"{row['module']}: {row['snippet']}")
 
 print(f"\n--- Module preview: {module_path} ---")
+# Reads the final wiki page through the same MCP surface an editor client uses.
 module_text = get_module(module_path)
 print(module_text[:1200])
 PY

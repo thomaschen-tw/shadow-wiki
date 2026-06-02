@@ -1,6 +1,6 @@
 # GitHub PR + Slack Comment -> Wiki Verification
 
-This guide validates two core Shadow Wiki paths end-to-end:
+This guide validates two core PulseWiki paths end-to-end:
 
 1. GitHub PR / review events update module wiki pages.
 2. Slack messages / thread replies update module wiki pages.
@@ -13,7 +13,194 @@ Quick path (no real GitHub/Slack activity required):
 bash scripts/verify_mcp_ingest.sh
 ```
 
-This seeds synthetic events, processes them, and prints MCP query output.
+This seeds 5 synthetic events (`pr`, `pr_review`, `pr_comment`, `message`, `thread_reply`),
+processes only those newly-seeded events, and prints MCP query output.
+
+What this script is trying to prove:
+
+1. Raw GitHub and Slack events can be stored in the SQLite event queue.
+2. The worker can classify those events to a module and update the wiki.
+3. The MCP server can then read back the updated wiki content.
+
+In other words, the script validates this path:
+
+`synthetic event -> db.events -> worker.py -> wiki/*.md -> mcp_server.py`
+
+---
+
+## 0. What Each Command Is For
+
+Before running the commands below, it helps to know what each one is supposed to achieve:
+
+### `uv run python scripts/resource_mgr.py init`
+
+Purpose:
+
+- Create or migrate the SQLite database at `db/shadow.db`.
+- Ensure the `events`, `modules`, `file_hashes`, and `wiki_fts` tables exist.
+
+Handled data:
+
+- Database schema only. It does not ingest external data.
+
+Data source:
+
+- Local filesystem only.
+
+### `uv run python scripts/resource_mgr.py status`
+
+Purpose:
+
+- Show queue health: how many events are pending, how many failed, and when the last event finished.
+
+Handled data:
+
+- Reads status from the `events` table.
+
+Data source:
+
+- SQLite database `db/shadow.db`.
+
+Typical output meaning:
+
+- `pending > 0`: events are waiting for the worker.
+- `failed > 0`: some event processing failed and needs inspection.
+- `last_processed != null`: the worker successfully handled at least one event.
+
+### `uv run python scripts/distill/worker.py`
+
+Purpose:
+
+- Poll `events` from the database.
+- Route each event to the correct handler.
+- Call the LLM pipeline.
+- Update `wiki/*.md` and FTS search index.
+
+Handled data:
+
+- GitHub PRs, GitHub reviews/comments, Slack messages/thread replies, knowledge base notes, manual diff events.
+
+Data source:
+
+- Reads from `db.events`, not directly from GitHub or Slack.
+
+### `uv run python scripts/ingest/github_connector.py`
+
+Purpose:
+
+- Receive GitHub webhook payloads over HTTP.
+- Convert them into normalized queue events.
+
+Handled data:
+
+- `pull_request`
+- `pull_request_review`
+- `pull_request_review_comment`
+- `issue_comment` on PRs only
+
+Data source:
+
+- GitHub webhook POST requests.
+
+### `uv run python scripts/ingest/slack_connector.py`
+
+Purpose:
+
+- Listen to Slack Events API via Socket Mode.
+- Convert Slack messages into normalized queue events.
+
+Handled data:
+
+- normal channel messages
+- thread replies
+
+Data source:
+
+- Slack realtime event stream.
+
+### `bash scripts/verify_mcp_ingest.sh`
+
+Purpose:
+
+- Skip real GitHub/Slack dependencies.
+- Manually create fake-but-realistic events in `db.events`.
+- Process them inline.
+- Query the results through MCP functions.
+
+Handled data:
+
+- synthetic `github/pr`
+- synthetic `github/pr_review`
+- synthetic `github/pr_comment`
+- synthetic `slack/message`
+- synthetic `slack/thread_reply`
+
+Data source:
+
+- Local script-generated JSON payloads.
+
+---
+
+## 0.1 Sample Payloads
+
+These are the kinds of records the system handles.
+
+### Synthetic GitHub PR event
+
+```json
+{
+    "pr_number": 9001,
+    "title": "Synthetic PR 20260602103000: improve session retry",
+    "description": "Improve retry logic for session refresh.",
+    "diff": "+def refresh_session_with_retry(): pass",
+    "body": "Adds safer session retry path."
+}
+```
+
+Meaning:
+
+- This is treated like a code-change event.
+- `worker.py` sends it through `_handle_code_event()`.
+- Result usually lands in `## Recent Changes`, and may create a new module page if needed.
+
+### Synthetic GitHub review event
+
+```json
+{
+    "pr_number": 9001,
+    "title": "Synthetic PR 20260602103000: improve session retry",
+    "reviewer": "qa-bot",
+    "state": "COMMENTED",
+    "body": "Please add metrics around retries and timeout handling.",
+    "url": "https://example.invalid/pr/9001/review/1"
+}
+```
+
+Meaning:
+
+- This is treated like review discussion context.
+- `worker.py` sends it through `_handle_review_event()`.
+- Result is synthesized into a short changelog-style entry.
+
+### Synthetic Slack thread reply event
+
+```json
+{
+    "channel": "C_SYNTHETIC",
+    "user": "U_SYNTHETIC",
+    "body": "Confirmed fix after increasing retry jitter; no failures in latest run.",
+    "ts": "1717228801.000200",
+    "thread_ts": "1717228800.000100",
+    "is_thread_reply": true,
+    "reply_count": 1
+}
+```
+
+Meaning:
+
+- This is treated as discussion context, not code diff.
+- `worker.py` sends it through `_handle_slack_thread_reply()`.
+- Result lands in `## Slack Discussions` and updates frontmatter `slack_threads`.
 
 ---
 
@@ -28,6 +215,8 @@ This seeds synthetic events, processes them, and prints MCP query output.
 Optional visibility command:
 
 ```bash
+# Read current queue health from SQLite.
+# Use this before and after tests to see whether events were queued and processed.
 uv run python scripts/resource_mgr.py status
 ```
 
@@ -38,6 +227,8 @@ uv run python scripts/resource_mgr.py status
 ### 2.1 Trigger a PR-like event quickly (manual diff path)
 
 ```bash
+# Push one fake code diff into the queue without needing GitHub webhook setup.
+# This exercises the same worker code path as a normal PR/code-change event.
 echo "+def login(): pass" | uv run python scripts/ingest_diff.py --diff - --pr 101 --title "Add login path"
 ```
 
@@ -56,6 +247,8 @@ The webhook server should enqueue `review_comment`, `pr_review`, and `pr_comment
 ### 2.3 Verify results
 
 ```bash
+# First command: show queue health.
+# Second command: list indexed wiki modules after the worker processes the event.
 uv run python scripts/resource_mgr.py status
 uv run python scripts/resource_mgr.py list
 ```
@@ -76,6 +269,16 @@ In a channel listed in `SLACK_CHANNELS`:
 
 - Post a normal message about a module change.
 - Reply in thread (this validates `thread_reply` path).
+
+Suggested sample messages:
+
+- Normal message: `Session timeout issue reproduced under burst traffic in auth/session.`
+- Thread reply: `Confirmed fix after retry jitter update; no failures in latest run.`
+
+Why these examples help:
+
+- They mention a concrete module/topic (`auth/session`).
+- They contain operational context that should show up clearly in the wiki.
 
 ### 3.2 Verify connector intake
 
@@ -100,10 +303,11 @@ Check affected module page in `wiki/`:
 For knowledge base scanning:
 
 ```bash
+# First scan: queue changed or new notes from KNOWLEDGE_BASE_PATH.
 uv run python scripts/ingest/knowledge_base_scanner.py --once
 uv run python scripts/resource_mgr.py status
 
-# Run scanner again without changing notes
+# Second scan with no note changes: should enqueue little or nothing.
 uv run python scripts/ingest/knowledge_base_scanner.py --once
 uv run python scripts/resource_mgr.py status
 ```
@@ -150,6 +354,7 @@ sudo ./svc.sh start
 If worker crashed with events stuck in `processing`:
 
 ```bash
+# Reset interrupted events back to pending so the worker can retry them.
 uv run python -c "
 from scripts.db import get_connection
 with get_connection() as conn:
