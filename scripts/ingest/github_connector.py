@@ -102,10 +102,11 @@ async def github_webhook(request: Request):
         logger.info("Queued PR review (%s) on PR #%s", state, pr.get("number", ""))
 
     elif event_type == "issue_comment" and payload.get("action") in ("created", "edited"):
-        # Only handle comments on pull requests (issues that have a pull_request field)
         issue = payload.get("issue", {})
+        comment = payload.get("comment", {})
+
+        # Comments on pull requests (issues with pull_request field) -> pr_comment
         if "pull_request" in issue:
-            comment = payload.get("comment", {})
             push_event("github", "pr_comment", json.dumps({
                 "pr_number": issue.get("number", ""),
                 "title": issue.get("title", ""),
@@ -114,6 +115,31 @@ async def github_webhook(request: Request):
                 "url": comment.get("html_url", ""),
             }))
             logger.info("Queued PR comment on #%s", issue.get("number", ""))
+        else:
+            # Plain GitHub issue Q&A comments -> issue_comment
+            push_event("github", "issue_comment", json.dumps({
+                "issue_number": issue.get("number", ""),
+                "title": issue.get("title", ""),
+                "user": comment.get("user", {}).get("login", ""),
+                "body": comment.get("body", ""),
+                "url": comment.get("html_url", ""),
+                "state": issue.get("state", ""),
+            }))
+            logger.info("Queued issue comment on #%s", issue.get("number", ""))
+
+    elif event_type == "issues" and payload.get("action") in ("opened", "edited", "reopened"):
+        issue = payload.get("issue", {})
+        labels = [x.get("name", "") for x in issue.get("labels", []) if x.get("name")]
+        push_event("github", "issue", json.dumps({
+            "issue_number": issue.get("number", ""),
+            "title": issue.get("title", ""),
+            "body": issue.get("body", ""),
+            "user": issue.get("user", {}).get("login", ""),
+            "url": issue.get("html_url", ""),
+            "state": issue.get("state", ""),
+            "labels": labels,
+        }))
+        logger.info("Queued issue #%s (%s)", issue.get("number", ""), payload.get("action", ""))
 
     return {"status": "ok"}
 

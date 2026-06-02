@@ -191,7 +191,7 @@ def test_webhook_queues_issue_comment_on_pr(tmp_db, monkeypatch):
     assert raw["pr_number"] == 12
 
 
-def test_webhook_ignores_issue_comment_on_plain_issue(tmp_db, monkeypatch):
+def test_webhook_queues_issue_comment_on_plain_issue(tmp_db, monkeypatch):
     monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "")
     import scripts.config as cfg
     cfg._settings = None
@@ -201,10 +201,10 @@ def test_webhook_ignores_issue_comment_on_plain_issue(tmp_db, monkeypatch):
     from scripts.ingest.github_connector import app
     client = TestClient(app)
 
-    # issue without pull_request field → should NOT be queued
+    # issue without pull_request field -> should be queued as issue_comment
     payload = {
         "action": "created",
-        "issue": {"number": 13, "title": "Bug report"},
+        "issue": {"number": 13, "title": "Bug report", "state": "open"},
         "comment": {
             "user": {"login": "bob"},
             "body": "Can you reproduce this?",
@@ -217,4 +217,46 @@ def test_webhook_ignores_issue_comment_on_plain_issue(tmp_db, monkeypatch):
         headers={"Content-Type": "application/json", "X-GitHub-Event": "issue_comment"},
     )
     assert response.status_code == 200
-    assert len(get_pending_events()) == 0
+    events = get_pending_events()
+    assert len(events) == 1
+    assert events[0]["event_type"] == "issue_comment"
+    raw = json.loads(events[0]["raw_json"])
+    assert raw["issue_number"] == 13
+    assert raw["user"] == "bob"
+
+
+def test_webhook_queues_issue_opened_event(tmp_db, monkeypatch):
+    monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "")
+    import scripts.config as cfg
+    cfg._settings = None
+    from scripts.db import init_db, get_pending_events
+    init_db()
+
+    from scripts.ingest.github_connector import app
+    client = TestClient(app)
+
+    payload = {
+        "action": "opened",
+        "issue": {
+            "number": 21,
+            "title": "Token expiry too aggressive",
+            "body": "Users report early expiration around 50 minutes.",
+            "state": "open",
+            "html_url": "https://github.com/owner/repo/issues/21",
+            "user": {"login": "alice"},
+            "labels": [{"name": "bug"}, {"name": "auth"}],
+        },
+    }
+    response = client.post(
+        "/webhook/github",
+        content=json.dumps(payload),
+        headers={"Content-Type": "application/json", "X-GitHub-Event": "issues"},
+    )
+    assert response.status_code == 200
+    events = get_pending_events()
+    assert len(events) == 1
+    assert events[0]["event_type"] == "issue"
+    raw = json.loads(events[0]["raw_json"])
+    assert raw["issue_number"] == 21
+    assert raw["title"] == "Token expiry too aggressive"
+    assert raw["labels"] == ["bug", "auth"]

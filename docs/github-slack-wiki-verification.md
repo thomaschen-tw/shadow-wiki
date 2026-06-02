@@ -7,14 +7,28 @@ This guide validates two core PulseWiki paths end-to-end:
 
 It also includes a check to confirm unchanged files are not re-analyzed.
 
-Quick path (no real GitHub/Slack activity required):
+Quick path for real data (default, no synthetic data):
 
 ```bash
-bash scripts/verify_mcp_ingest.sh
+bash scripts/verify_mcp_ingest.sh --module auth/session --query issue --since 7d
 ```
 
-This seeds 5 synthetic events (`pr`, `pr_review`, `pr_comment`, `message`, `thread_reply`),
-processes only those newly-seeded events, and prints MCP query output.
+Quick path for synthetic test data:
+
+```bash
+bash scripts/verify_mcp_ingest.sh --test
+```
+
+Default mode behavior:
+
+- Does not create synthetic events.
+- Reads real events/wiki data already in your DB and MCP index.
+
+`--test` mode behavior:
+
+- Seeds synthetic events (`pr`, `pr_review`, `issue_comment`, `message`, `thread_reply`).
+- Processes only those newly-seeded events.
+- Prints MCP query output.
 
 What this script is trying to prove:
 
@@ -122,22 +136,25 @@ Data source:
 
 Purpose:
 
-- Skip real GitHub/Slack dependencies.
-- Manually create fake-but-realistic events in `db.events`.
-- Process them inline.
-- Query the results through MCP functions.
+- In default mode, query real data through MCP and DB summaries.
+- In `--test` mode, create fake-but-realistic events in `db.events`, process them inline, then query through MCP.
 
-Handled data:
+Handled data (default mode):
+
+- existing real data in `db.events`, `wiki_fts`, and `wiki/*.md`
+
+Handled data (`--test` mode):
 
 - synthetic `github/pr`
 - synthetic `github/pr_review`
-- synthetic `github/pr_comment`
+- synthetic `github/issue_comment`
 - synthetic `slack/message`
 - synthetic `slack/thread_reply`
 
 Data source:
 
-- Local script-generated JSON payloads.
+- Default mode: real local DB/wiki content produced by your connectors/worker.
+- `--test` mode: local script-generated JSON payloads.
 
 ---
 
