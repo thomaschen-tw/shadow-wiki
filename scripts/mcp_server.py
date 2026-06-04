@@ -7,7 +7,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from fastmcp import FastMCP
-from fastmcp.tools.tool import FunctionTool  # noqa: F401 — fastmcp 3.x location
 
 from scripts.db import get_connection, get_pipeline_status, search_modules_fts
 from scripts.wiki.manager import append_to_section, module_exists, read_module
@@ -112,7 +111,7 @@ def get_runbooks(path: str) -> str:
 
 # Register all tools with the MCP server
 for _fn in [search_wiki, get_module, list_modules, get_recent_changes, update_module, get_pipeline_status_tool, get_runbooks]:
-    mcp.add_tool(FunctionTool.from_function(_fn))
+    mcp.tool(_fn)
 
 
 if __name__ == "__main__":

@@ -84,6 +84,16 @@ def _handle_slack_thread_reply(event) -> None:
     today = datetime.now().strftime("%Y-%m-%d")
     thread_ref = f"slack:{channel}:{thread_ts}" if thread_ts else f"slack:{channel}"
     entry = f"**Thread** `{thread_ref}` — {body[:500]}"
+    source_meta = {
+        "platform": "slack",
+        "event_type": "thread_reply",
+        "ref": thread_ref,
+        "url": raw.get("url", ""),
+        "actor": user,
+        "channel": channel,
+        "thread_ts": thread_ts,
+        "occurred_at": _event_value(event, "created_at", today),
+    }
 
     for module_path in modules:
         if not module_exists(module_path):
@@ -91,7 +101,7 @@ def _handle_slack_thread_reply(event) -> None:
             continue
 
         # Append to Slack Discussions section
-        append_to_section(module_path, "Slack Discussions", entry)
+        append_to_section(module_path, "Slack Discussions", entry, source_meta=source_meta)
 
         # Update slack_threads frontmatter (deduplicated)
         post = read_module(module_path)
@@ -128,12 +138,21 @@ def _handle_review_event(event) -> None:
     modules = _parse_json_list(modules_json, default=["general"])
 
     entry = call_llm(TaskType.APPEND, synthesis_prompt, REVIEW_SYNTHESIS_SYSTEM)
+    source_meta = {
+        "platform": "github",
+        "event_type": event_type,
+        "ref": pr_ref,
+        "url": raw.get("url", ""),
+        "actor": raw.get("reviewer") or raw.get("user", ""),
+        "pr_number": pr_number,
+        "occurred_at": _event_value(event, "created_at", datetime.now().strftime("%Y-%m-%d")),
+    }
 
     for module_path in modules:
         if not module_exists(module_path):
             logger.info("Module %s not found for review event — skipping", module_path)
             continue
-        append_to_section(module_path, "Recent Changes", entry, pr_ref)
+        append_to_section(module_path, "Recent Changes", entry, pr_ref, source_meta=source_meta)
         logger.info("Appended %s to %s", event_type, module_path)
 
 
@@ -163,6 +182,18 @@ def _handle_code_event(event) -> None:
 
     pr_number = raw.get("pr_number", raw.get("number", ""))
     pr_ref = f"#{pr_number}" if pr_number else "unknown"
+    source_meta = {
+        "platform": _event_value(event, "source", ""),
+        "event_type": _event_value(event, "event_type", ""),
+        "ref": pr_ref,
+        "url": raw.get("url", ""),
+        "actor": raw.get("author") or raw.get("user", ""),
+        "pr_number": pr_number,
+        "issue_number": raw.get("issue_number", ""),
+        "channel": raw.get("channel", ""),
+        "thread_ts": raw.get("thread_ts", ""),
+        "occurred_at": _event_value(event, "created_at", datetime.now().strftime("%Y-%m-%d")),
+    }
 
     for module_path in modules:
         if not module_exists(module_path):
@@ -180,7 +211,7 @@ def _handle_code_event(event) -> None:
                 append_prompt(existing_content, change_text, pr_ref, datetime.now().strftime("%Y-%m-%d")),
                 APPEND_SYSTEM,
             )
-            append_to_section(module_path, "Recent Changes", entry, pr_ref)
+            append_to_section(module_path, "Recent Changes", entry, pr_ref, source_meta=source_meta)
 
             # Post-append triggers: synthesis every 5 entries, runbook when issues accumulate
             updated = read_module(module_path)
@@ -331,6 +362,16 @@ def _safe_json(s: str, default: dict) -> dict:
     except (json.JSONDecodeError, TypeError):
         pass
     return default
+
+
+def _event_value(event, key: str, default=None):
+    """Fetch a value from either sqlite Row-like objects or plain dicts."""
+    try:
+        if isinstance(event, dict):
+            return event.get(key, default)
+        return event[key]
+    except Exception:
+        return default
 
 
 if __name__ == "__main__":

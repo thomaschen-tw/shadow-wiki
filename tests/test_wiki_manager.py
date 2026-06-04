@@ -46,6 +46,40 @@ def test_append_to_section_adds_content(tmp_db):
     assert "#101" in post["recent_prs"]
 
 
+def test_append_to_section_stores_recent_events_metadata(tmp_db):
+    from scripts.db import init_db
+    from scripts.wiki.manager import create_module, append_to_section, read_module
+    init_db()
+    create_module(
+        "api/users",
+        "## Overview\n\nUser API.\n\n## Recent Changes\n\n## Known Issues\n\n## Related Modules\n",
+    )
+    append_to_section(
+        "api/users",
+        "Recent Changes",
+        "- Added issue triage automation",
+        "#202",
+        source_meta={
+            "platform": "github",
+            "event_type": "issue_comment",
+            "ref": "#202",
+            "url": "https://github.com/owner/repo/issues/202#issuecomment-1",
+            "actor": "alice",
+            "issue_number": 202,
+            "occurred_at": "2026-06-02 08:33:30",
+        },
+    )
+    post = read_module("api/users")
+    recent_events = post.get("recent_events", [])
+    assert isinstance(recent_events, list)
+    assert len(recent_events) == 1
+    evt = recent_events[0]
+    assert evt["platform"] == "github"
+    assert evt["event_type"] == "issue_comment"
+    assert evt["ref"] == "#202"
+    assert evt["actor"] == "alice"
+
+
 def test_append_updates_last_updated(tmp_db):
     from scripts.db import init_db
     from scripts.wiki.manager import create_module, append_to_section, read_module

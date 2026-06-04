@@ -560,7 +560,7 @@ get_runbooks("auth/session")
 ┌──────────────────────────────────────────────────────────┐
 │              OBSIDIAN WIKI  wiki/{module}.md             │
 │  YAML frontmatter: module, last_updated, recent_prs,     │
-│  owners, known_issues, slack_threads, tags               │
+│  recent_events, owners, known_issues, slack_threads, tags│
 │  Sections: Overview │ Recent Changes │ Known Issues      │
 │            Related Modules │ Runbooks                   │
 └────────────────────────────┬─────────────────────────────┘
@@ -615,7 +615,7 @@ pulse-wiki/
 │   └── resource_mgr.py         ← CLI: init / status / list / cloud / db / dev / compile / llm
 ├── demo.sh                     ← MVP one-shot demo
 ├── dev_up.sh                   ← debug bring-up (single-event; see README)
-└── tests/                      ← 49 tests (uv run pytest)
+└── tests/                      ← 61 tests (uv run pytest)
     ├── conftest.py             ← tmp_db fixture (isolates DB per test)
     ├── test_config.py
     ├── test_db.py
