@@ -2,7 +2,7 @@
 
 > Architecture: [docs/architecture.md](docs/architecture.md) · Full SOP: [docs/SOP.md](docs/SOP.md) · GitHub setup: [docs/github-setup.md](docs/github-setup.md) · Roadmap: [docs/architecture-roadmap.md](docs/architecture-roadmap.md)
 
-A self-updating technical wiki that ingests GitHub PRs, Slack messages, Linear tickets, and local files — distilling them via a hybrid local/cloud LLM pipeline into an Obsidian vault exposed as an MCP server.
+A self-updating technical wiki that ingests GitHub PRs, Slack messages, and local files — distilling them via a hybrid local/cloud LLM pipeline into an Obsidian vault exposed as an MCP server.
 
 ## Essential Commands
 

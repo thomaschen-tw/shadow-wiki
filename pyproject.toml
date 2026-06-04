@@ -1,7 +1,7 @@
 [project]
 name = "pulse-wiki"
 version = "0.1.0"
-description = "Self-updating technical wiki from GitHub, Slack, Linear, and local files"
+description = "Self-updating technical wiki from GitHub, Slack, and local files"
 requires-python = ">=3.12"
 dependencies = [
     "pydantic-settings>=2.3.0",

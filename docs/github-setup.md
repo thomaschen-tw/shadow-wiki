@@ -137,4 +137,4 @@ with get_connection() as conn:
 git diff HEAD~1 | uv run python scripts/ingest_diff.py --diff - --pr 1 --title "My change"
 ```
 
-The local diff ingestion, Slack connector, Linear connector, and local file scanner all work independently of GitHub.
+The local diff ingestion, Slack connector, and local file scanner all work independently of GitHub.

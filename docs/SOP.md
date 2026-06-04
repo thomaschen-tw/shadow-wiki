@@ -1,6 +1,6 @@
 # PulseWiki — Standard Operating Procedure
 
-> **What it does:** Watches GitHub PRs, Slack channels, Linear tickets, and local code files. Distills them into a module-level Obsidian wiki via a local Qwen model (LM Studio / Ollama) for routine updates and a cloud model (Claude / Qwen Cloud / DeepSeek) for new-page synthesis. Exposes the wiki as a FastMCP server so VS Code, Claude Code, Cursor, and other MCP clients can search it without scanning the full codebase.
+> **What it does:** Watches GitHub PRs, Slack channels, and local code files. Distills them into a module-level Obsidian wiki via a local Qwen model (LM Studio / Ollama) for routine updates and a cloud model (Claude / Qwen Cloud / DeepSeek) for new-page synthesis. Exposes the wiki as a FastMCP server so VS Code, Claude Code, Cursor, and other MCP clients can search it without scanning the full codebase.
 
 ---
 
@@ -31,7 +31,6 @@
 | Git | any | for the project itself |
 | GitHub repo (optional) | — | for webhook ingestion |
 | Slack workspace (optional) | — | Bot + App tokens needed |
-| Linear workspace (optional) | — | API key needed |
 
 **Minimum to run:** Python 3.12 + uv + LM Studio with Qwen loaded. Everything else is optional.
 
@@ -137,9 +136,6 @@ SLACK_BOT_TOKEN=xoxb-...        # Bot User OAuth Token
 SLACK_APP_TOKEN=xapp-...        # App-Level Token (for Socket Mode)
 SLACK_CHANNELS=C12345,C67890    # Comma-separated channel IDs to monitor
 
-# Linear
-LINEAR_API_KEY=lin_...          # Personal API Key from Linear settings
-
 # Local file scan
 LOCAL_SCAN_PATHS=./src,./docs   # Comma-separated directories to watch
 LOCAL_SCAN_EXTENSIONS=.py,.ts,.tsx,.md,.go
@@ -179,7 +175,7 @@ RAW_DIR=./raw           # Raw event JSON backups (for debugging)
 2. Payload URL: `http://your-server:9000/webhook/github`
 3. Content type: `application/json`
 4. Secret: the value you set in `GITHUB_WEBHOOK_SECRET`
-5. Events: **Pull requests**, **Pull request review comments**
+5. Events: **Pull requests**, **Pull request reviews**, **Pull request review comments**, **Issues**, **Issue comments**, **Discussions**, **Discussion comments**
 6. Start the connector: `python scripts/ingest/github_connector.py`
 
 > For local development, use [ngrok](https://ngrok.com) or [smee.io](https://smee.io) to expose port 9000.
@@ -195,15 +191,7 @@ RAW_DIR=./raw           # Raw event JSON backups (for debugging)
 7. Set `SLACK_CHANNELS` to the channel IDs (visible in the URL when you open the channel in a browser)
 8. Start the connector: `python scripts/ingest/slack_connector.py`
 
-### 4.3 Linear
-
-1. Linear → **Settings → API → Personal API keys → Create key**
-2. Save as `LINEAR_API_KEY`
-3. Start the connector: `python scripts/ingest/linear_connector.py`
-
-The connector polls every 5 minutes (default). No webhook setup needed.
-
-### 4.4 Local File Scanner
+### 4.3 Local File Scanner
 
 No external setup. Configure `LOCAL_SCAN_PATHS` and `LOCAL_SCAN_EXTENSIONS` in `.env`, then:
 
@@ -213,7 +201,7 @@ python scripts/ingest/local_scanner.py
 
 The scanner runs a full pass at startup and then every 2 minutes (default). On first run it will queue all matching files as `file_change` events.
 
-### 4.5 Knowledge Base (daily digest)
+### 4.4 Knowledge Base (daily digest)
 
 Distills your personal Obsidian vault's **wiki/** subfolder (`concepts/`, `comparisons/`, `entities/`, `summaries/`) into structured pages under `wiki/knowledge/…` in this repo. Raw clippings under `raw/` are not scanned — only curated wiki notes.
 
@@ -286,9 +274,6 @@ python scripts/ingest/github_connector.py &
 
 # Slack Socket Mode listener
 python scripts/ingest/slack_connector.py &
-
-# Linear polling (every 5 min)
-python scripts/ingest/linear_connector.py &
 
 # Local file scanner (every 2 min)
 python scripts/ingest/local_scanner.py &
@@ -526,7 +511,7 @@ get_runbooks("auth/session")
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                     DATA SOURCES                        │
-│  GitHub │ Slack │ Linear │ Local │ Obsidian KB │
+│  GitHub │ Slack │ Local │ Obsidian KB │
 └──────────┬──────────┴────────┬─────────┴───┬────┴───┬───┘
            │                   │             │        │
            ▼                   ▼             ▼        ▼
@@ -570,6 +555,7 @@ get_runbooks("auth/session")
 │              MCP SERVER  mcp_server.py (stdio)           │
 │  search_wiki │ get_module │ list_modules                 │
 │  get_recent_changes │ update_module │ get_pipeline_status│
+│  get_runbooks                                           │
 └────────────────────────────┬─────────────────────────────┘
                              │  MCP protocol
                              ▼
@@ -605,7 +591,6 @@ pulse-wiki/
 │   ├── ingest/
 │   │   ├── github_connector.py ← FastAPI webhook (port 9000)
 │   │   ├── slack_connector.py  ← Slack Socket Mode
-│   │   ├── linear_connector.py ← Linear GraphQL poll
 │   │   ├── local_scanner.py    ← MD5 hash change detection
 │   │   └── knowledge_base_scanner.py ← Obsidian vault wiki/ scanner
 │   ├── wiki/

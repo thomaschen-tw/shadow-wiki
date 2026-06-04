@@ -1,6 +1,6 @@
 # PulseWiki — 录屏流程文件（Hackathon Demo）
 
-> **项目一句话：** PulseWiki 把 PR、Slack、Linear、代码 diff 和知识库笔记自动蒸馏成**结构化、可检索的活文档**，并通过 **MCP** 让 Cursor 直接查 wiki，而不是暴力 grep 全仓库。  
+> **项目一句话：** PulseWiki 把 PR、Slack、代码 diff 和知识库笔记自动蒸馏成**结构化、可检索的活文档**，并通过 **MCP** 让 Cursor 直接查 wiki，而不是暴力 grep 全仓库。  
 > **录屏主命令：** `bash dev_up.sh`（单条事件、不拖垮队列）  
 > **建议时长：** 4–6 分钟  
 > **口播语言：** 中文（屏幕可英文）
@@ -14,14 +14,14 @@
 | 痛点 | 具体表现 |
 |------|----------|
 | **文档一次性写完就腐烂** | README / Confluence 在第一次提交后很少更新，与真实系统脱节 |
-| **知识碎片化** | 架构决策在 PR 评论、Slack 线程、Linear 工单、工程师脑子里，没有单一真相源 |
+| **知识碎片化** | 架构决策在 PR 评论、Slack 线程、代码提交和工程师脑子里，没有单一真相源 |
 | **新人/on-call 成本高** | 接手模块要翻几十条 PR、搜 Slack，Senior 反复讲同一件事 |
 | **AI 编码助手上下文不足** | Cursor / Copilot 只能扫代码，看不到「为什么当时这么设计」 |
 
 ### 1.2 PulseWiki 的解法（对应画面：架构图）
 
 ```
-多源事件（GitHub / Slack / Linear / diff / Obsidian）
+多源事件（GitHub / Slack / diff / Obsidian）
         ↓ 连接器写入队列
    SQLite 事件队列 + FTS5 全文索引
         ↓ worker 每 30s（或 dev_up 内联一次）
@@ -29,7 +29,7 @@
    云端 LLM：仅「首次见到的模块」创建新页面（控成本）
         ↓
    wiki/{module}.md（YAML + Overview / Recent Changes / …）
-        ↓ MCP（6 个工具）
+     ↓ MCP（7 个工具）
    Cursor：search_wiki / get_module / …
 ```
 
