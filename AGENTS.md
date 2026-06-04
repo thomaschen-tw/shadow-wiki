@@ -8,7 +8,7 @@ A self-updating technical wiki that ingests GitHub PRs, Slack messages, Linear t
 
 ```bash
 uv sync                                 # install deps (Python 3.12 required)
-uv run pytest -v                        # run all 61 tests
+uv run pytest -v                        # run all 66 tests
 uv run python test_env.py              # verify env/connectivity before starting
 uv run python scripts/resource_mgr.py init   # initialise SQLite (db/shadow.db)
 uv run python scripts/distill/worker.py &    # distillation daemon (polls every 30s)

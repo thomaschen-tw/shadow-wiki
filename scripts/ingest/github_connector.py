@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -21,6 +22,12 @@ app = FastAPI()
 def verify_signature(payload_body: bytes, signature_header: str) -> bool:
     secret = get_settings().github_webhook_secret
     if not secret:
+        # Production mode: must have a secret configured
+        logger.warning("Webhook received but GITHUB_WEBHOOK_SECRET is not configured. Set it in .env for production.")
+        # Use env var to allow dev/test without secret, but require in production
+        import os
+        if os.environ.get("GITHUB_WEBHOOK_REQUIRE_SECRET", "false").lower() == "true":
+            return False
         return True
     expected = "sha256=" + hmac.new(
         secret.encode(), payload_body, hashlib.sha256
@@ -141,6 +148,32 @@ async def github_webhook(request: Request):
         }))
         logger.info("Queued issue #%s (%s)", issue.get("number", ""), payload.get("action", ""))
 
+    elif event_type == "discussion" and payload.get("action") in ("created", "edited", "transferred", "reopened"):
+        discussion = payload.get("discussion", {})
+        category = discussion.get("category", {}).get("name", "General")
+        push_event("github", "discussion", json.dumps({
+            "discussion_id": discussion.get("id", ""),
+            "number": discussion.get("number", ""),
+            "title": discussion.get("title", ""),
+            "body": discussion.get("body", ""),
+            "user": discussion.get("user", {}).get("login", ""),
+            "url": discussion.get("html_url", ""),
+            "category": category,
+        }))
+        logger.info("Queued discussion #%s (%s)", discussion.get("number", ""), payload.get("action", ""))
+
+    elif event_type == "discussion_comment" and payload.get("action") in ("created", "edited"):
+        discussion = payload.get("discussion", {})
+        comment = payload.get("comment", {})
+        push_event("github", "discussion_comment", json.dumps({
+            "discussion_number": discussion.get("number", ""),
+            "discussion_title": discussion.get("title", ""),
+            "body": comment.get("body", ""),
+            "user": comment.get("user", {}).get("login", ""),
+            "url": comment.get("html_url", ""),
+        }))
+        logger.info("Queued discussion comment on discussion #%s", discussion.get("number", ""))
+
     return {"status": "ok"}
 
 
@@ -148,4 +181,5 @@ if __name__ == "__main__":
     from scripts.db import init_db
     logging.basicConfig(level=logging.INFO)
     init_db()
-    uvicorn.run(app, host="0.0.0.0", port=9000)
+    port = int(os.environ.get("GITHUB_CONNECTOR_PORT", "9000"))
+    uvicorn.run(app, host="0.0.0.0", port=port)

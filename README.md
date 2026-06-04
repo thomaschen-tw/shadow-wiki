@@ -50,7 +50,7 @@ flowchart TD
     end
 
     WIKI["Obsidian Wiki\nwiki/module.md\nYAML frontmatter"]
-    MCP["MCP Server\nmcp_server.py stdio\n6 tools"]
+    MCP["MCP Server\nmcp_server.py stdio\n7 tools"]
     IDE["MCP Clients\nVS Code · Claude Code · Cursor"]
 
     GH-->GH_C; SL-->SL_C; LI-->LI_C; FS-->LS_C; KB-->KB_C; CLI-->ID
@@ -239,7 +239,7 @@ pulse-wiki/
 │   ├── mcp_server.py           ← FastMCP stdio server (7 tools)
 │   ├── ingest_diff.py          ← CLI: push diff manually + AST syntax validation
 │   └── resource_mgr.py         ← CLI: init / status / list / cloud / db / dev
-├── tests/                      ← 48 tests
+├── tests/                      ← 66 tests
 ├── wiki/                       ← generated Obsidian pages (committed as living docs)
 ├── docs/
 │   ├── SOP.md                  ← full setup and operations guide
@@ -261,7 +261,7 @@ pulse-wiki/
 uv run pytest -v
 ```
 
-61 tests covering config loading, SQLite operations, FTS5 search, wiki manager, LLM routing, all connectors, MCP tools, and an end-to-end integration test.
+66 tests covering config loading, SQLite operations, FTS5 search, wiki manager, LLM routing, all connectors (including discussion and discussion_comment events), webhook secret enforcement, MCP tools, and an end-to-end integration test.
 
 ---
 

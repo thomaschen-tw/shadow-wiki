@@ -615,7 +615,7 @@ pulse-wiki/
 │   └── resource_mgr.py         ← CLI: init / status / list / cloud / db / dev / compile / llm
 ├── demo.sh                     ← MVP one-shot demo
 ├── dev_up.sh                   ← debug bring-up (single-event; see README)
-└── tests/                      ← 61 tests (uv run pytest)
+├── tests/                      ← 66 tests (uv run pytest)
     ├── conftest.py             ← tmp_db fixture (isolates DB per test)
     ├── test_config.py
     ├── test_db.py

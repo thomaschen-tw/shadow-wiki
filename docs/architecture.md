@@ -116,7 +116,7 @@ flowchart TD
     end
 
     subgraph mcp["MCP Layer"]
-        MCP["mcp_server.py\nFastMCP stdio\n6 tools"]
+        MCP["mcp_server.py\nFastMCP stdio\n7 tools"]
     end
 
     CC["MCP client\n(developer)"]
