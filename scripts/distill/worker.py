@@ -203,6 +203,7 @@ def _handle_code_event(event) -> None:
                 CREATE_PAGE_SYSTEM,
             )
             create_module(module_path, body, summary=change_text[:200])
+            logger.info("Created module: %s", module_path)
         else:
             existing = read_module(module_path)
             existing_content = existing.content if existing else ""
