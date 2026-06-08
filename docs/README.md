@@ -2,8 +2,9 @@
 
 | Document | Audience | Contents |
 |----------|----------|----------|
-| [../README.md](../README.md) | Everyone | Quick start, architecture diagram, `dev_up.sh` commands |
+| [../README.md](../README.md) | Everyone | Quick start, architecture diagram, `dev_up.sh` and stack starter commands |
 | [SOP.md](SOP.md) | Operators | Full setup, `.env`, connectors, troubleshooting |
+| [etl-stack-flow.md](etl-stack-flow.md) | Operators / Engineers | Complete ETL startup stack flow explanation, white-day validation scenarios |
 | [workflow.md](workflow.md) | Developers | Sequence diagrams, `raw/` vs `wiki/` outputs |
 | [architecture.md](architecture.md) | Architects | Component diagrams (ASCII + Mermaid) |
 | [architecture-roadmap.md](architecture-roadmap.md) | Architects | Production gaps, P0/P1/P2 backlog |
@@ -14,4 +15,4 @@
 | [runbook.md](runbook.md) | Operators | Startup, monitoring, recovery, and deployment checklist |
 | [DEMO.md](DEMO.md) | Hackathon / video | **录屏流程文件**：问题陈述、分镜、每步命令与预期效果 |
 
-**Scripts (repo root):** `demo.sh` (MVP) · `dev_up.sh` (single-event debug) · `test_env.py` (connectivity)
+**Scripts (repo root):** `demo.sh` (MVP) · `dev_up.sh` (single-event debug) · `scripts/start_legacy_stack.sh` (legacy one-click stack) · `scripts/start_etl_stack.sh` (etl one-click stack) · `test_env.py` (connectivity)

@@ -93,7 +93,14 @@ View a specific module:
 
 ```bash
 # See full markdown + frontmatter
-cat wiki/auth/session.md
+cat wiki_content/legacy/auth/session.md
+```
+
+Check active write target and ETL staging counters:
+
+```bash
+uv run python scripts/resource_mgr.py paths
+uv run python scripts/resource_mgr.py etl-status
 ```
 
 ---
@@ -126,6 +133,20 @@ Then restart worker:
 
 ```bash
 uv run python scripts/distill/worker.py
+```
+
+For staged ETL replay testing in daytime:
+
+```bash
+# Dry-run replay over a window
+uv run python scripts/resource_mgr.py etl-replay --since "2026-06-01 00:00:00" --until "2026-06-01 23:59:59" --limit 200
+
+# Apply replay over a window
+uv run python scripts/resource_mgr.py etl-replay --since "2026-06-01 00:00:00" --until "2026-06-01 23:59:59" --apply --limit 200
+
+# Route and distill from persisted staging rows
+uv run python scripts/resource_mgr.py etl-run route --from-staging --apply --limit 100
+uv run python scripts/resource_mgr.py etl-run distill --from-staging --apply --limit 100
 ```
 
 ---

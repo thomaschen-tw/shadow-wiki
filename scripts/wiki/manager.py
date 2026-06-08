@@ -18,7 +18,7 @@ _DEFAULT_METADATA = {
 
 
 def _module_file(module_path: str) -> Path:
-    return Path(get_settings().wiki_dir) / f"{module_path}.md"
+    return Path(get_settings().resolved_wiki_dir) / f"{module_path}.md"
 
 
 def module_exists(module_path: str) -> bool:

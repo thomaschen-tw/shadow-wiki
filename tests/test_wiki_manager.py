@@ -16,7 +16,7 @@ def test_create_module_writes_file(tmp_db):
     create_module("auth/session", "## Overview\n\nHandles sessions.", summary="Session management")
     assert module_exists("auth/session")
     import scripts.config as cfg
-    wiki_dir = Path(cfg.get_settings().wiki_dir)
+    wiki_dir = Path(cfg.get_settings().resolved_wiki_dir)
     assert (wiki_dir / "auth" / "session.md").exists()
 
 

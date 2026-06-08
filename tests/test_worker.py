@@ -177,3 +177,99 @@ def test_runbook_generated_when_known_issues_threshold_met(tmp_db):
     post = read_module("api/auth")
     assert "## Runbooks" in post.content
     assert "Run migration" in post.content
+
+
+def test_etl_skeleton_dry_run_does_not_write_modules(tmp_db):
+    from scripts.db import init_db, push_event
+    from scripts.wiki.manager import module_exists
+    from scripts.distill.worker import run_etl_once
+
+    init_db()
+    raw = json.dumps({
+        "pr_number": 100,
+        "title": "Auth session update",
+        "description": "Improve auth session handling",
+        "diff": "+ session refresh",
+    })
+    push_event("github", "pr", raw)
+
+    summary = run_etl_once(limit=10, dry_run=True)
+    assert summary["cleaned"] == 1
+    assert summary["routed"] == 1
+    assert summary["distilled"] == 1
+    assert summary["dry_run"] is True
+    assert not module_exists("auth/session")
+
+
+def test_etl_distill_apply_creates_or_updates_module(tmp_db):
+    from scripts.db import init_db, push_event
+    from scripts.wiki.manager import module_exists, read_module
+    from scripts.distill.worker import clean_batch, route_batch, distill_batch
+
+    init_db()
+    raw = json.dumps({
+        "pr_number": 101,
+        "title": "Auth session retries",
+        "description": "Add retries for auth session refresh",
+        "diff": "+ retry logic",
+    })
+    push_event("github", "pr", raw)
+
+    cleaned = clean_batch(limit=10, dry_run=True)
+    routed = route_batch(cleaned, dry_run=True)
+    results = distill_batch(routed, dry_run=False)
+
+    assert len(results) == 1
+    assert module_exists("auth/session")
+    post = read_module("auth/session")
+    assert "Recent Changes" in post.content
+
+
+def test_etl_apply_persists_staging_records(tmp_db):
+    from scripts.db import init_db, push_event, get_staging_status_counts
+    from scripts.distill.worker import run_etl_once
+
+    init_db()
+    raw = json.dumps({
+        "pr_number": 102,
+        "title": "Auth session metrics",
+        "description": "Track session metrics",
+        "diff": "+ metrics",
+    })
+    push_event("github", "pr", raw)
+
+    summary = run_etl_once(limit=10, dry_run=False)
+    assert summary["cleaned"] == 1
+    assert summary["routed"] == 1
+    assert summary["distilled"] == 1
+
+    counts = get_staging_status_counts()
+    assert counts.get("clean:done", 0) >= 1
+    assert counts.get("route:done", 0) >= 1
+    assert counts.get("distill:done", 0) >= 1
+
+
+def test_etl_apply_replay_is_idempotent_for_staging(tmp_db):
+    from scripts.db import init_db, push_event, get_staging_status_counts
+    from scripts.distill.worker import run_etl_once
+
+    init_db()
+    raw = json.dumps({
+        "pr_number": 103,
+        "title": "Auth session replay test",
+        "description": "Replay should not duplicate staging rows",
+        "diff": "+ replay guard",
+    })
+    push_event("github", "pr", raw)
+
+    window_since = "2000-01-01 00:00:00"
+    window_until = "2100-01-01 00:00:00"
+    run_etl_once(limit=10, dry_run=False, since=window_since, until=window_until)
+    counts_first = get_staging_status_counts().copy()
+
+    run_etl_once(limit=10, dry_run=False, since=window_since, until=window_until)
+    counts_second = get_staging_status_counts().copy()
+
+    assert counts_second.get("clean:done", 0) == counts_first.get("clean:done", 0)
+    assert counts_second.get("route:done", 0) == counts_first.get("route:done", 0)
+    assert counts_second.get("distill:done", 0) == counts_first.get("distill:done", 0)

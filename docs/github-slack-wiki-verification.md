@@ -2,6 +2,14 @@
 
 This guide validates PulseWiki end-to-end ingestion and traceability.
 
+One-click startup (recommended):
+
+```bash
+bash scripts/start_ingest_stack.sh
+```
+
+This command starts `github_connector` + `worker` (+ `slack_connector` when tokens exist), creates a Cloudflare quick tunnel, and prints a ready-to-use GitHub webhook URL.
+
 ## 1. Verification Modes
 
 Default mode (real data only):

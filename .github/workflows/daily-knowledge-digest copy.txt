@@ -3,8 +3,6 @@ name: Daily Knowledge Digest
 on:
   schedule:
     - cron: '0 2 * * *'   # 02:00 UTC = 10:00 Asia/Shanghai (UTC+8)
-  push:
-    branches: [ main, test ]
   workflow_dispatch:        # manual trigger from GitHub UI → Actions tab
 
 jobs:
@@ -29,26 +27,32 @@ jobs:
       - name: Scan knowledge_base for new / changed notes
         run: uv run python scripts/ingest/knowledge_base_scanner.py --once
 
-      - name: Show pending events before ETL
+      - name: Show pending events
         run: uv run python scripts/resource_mgr.py status
 
       - name: Distill notes into wiki pages
         env:
+          # Force cloud for CREATE_PAGE even if LM Studio is reachable,
+          # so new pages get high-quality synthesis. CLASSIFY/SUMMARIZE/APPEND
+          # still probe local first (AUTO backend).
           USE_CLOUD_LLM: "true"
-          PIPELINE_MODE: "etl"
-          WIKI_WRITE_TARGET: "etl"
         run: |
-          uv run python scripts/resource_mgr.py etl-run all --apply --limit 200
-      
-      - name: Hardening Retention (Archive & Purge Staging Rows)
-        run: |
-          uv run python scripts/resource_mgr.py etl-archive --hours 24 --apply
+          uv run python -c "
+          from scripts.db import init_db, get_pending_events
+          from scripts.distill.worker import process_event
+          init_db()
+          events = get_pending_events(limit=200)
+          print(f'Processing {len(events)} pending events')
+          for e in events:
+              process_event(e)
+          print('Done')
+          "
 
       - name: Commit and push wiki updates
         run: |
           git config user.email "pulse-wiki[bot]@users.noreply.github.com"
           git config user.name "PulseWiki Bot"
-          git add wiki_content/
+          git add wiki/
           git diff --staged --quiet \
             && echo "No wiki changes today." \
             || (git commit -m "docs: daily knowledge digest $(date +%Y-%m-%d)" && git push)

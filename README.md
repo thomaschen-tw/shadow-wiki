@@ -84,6 +84,24 @@ uv run python test_env.py
 uv run python scripts/resource_mgr.py init   # create SQLite database
 bash demo.sh                                 # worker → push test diff → show output
 # Or for debugging (single event, won't drain the queue): bash dev_up.sh
+
+# Or start full ingestion stacks in one command
+bash scripts/start_legacy_stack.sh           # legacy realtime worker + connectors
+bash scripts/start_etl_stack.sh              # etl staged runner + connectors
+```
+
+### One-click Stack Starters
+
+```bash
+# Legacy realtime stack (forces PIPELINE_MODE=legacy, WIKI_WRITE_TARGET=legacy)
+bash scripts/start_legacy_stack.sh --port 9000
+
+# ETL staged stack (forces PIPELINE_MODE=etl, WIKI_WRITE_TARGET=etl)
+# runs: resource_mgr.py etl-run all --apply --limit 50 every 30 seconds
+bash scripts/start_etl_stack.sh --port 9000 --interval 30 --limit 50
+
+# ETL validation mode (no writes)
+bash scripts/start_etl_stack.sh --dry-run --interval 20
 ```
 
 ### Development & debugging (`dev_up.sh`)
@@ -150,7 +168,7 @@ In any MCP-enabled chat client, ask: *"search redis session in pulse-wiki"* or *
 uv run python scripts/resource_mgr.py llm
 ```
 
-Restart `worker.py` (and reload your MCP client if you changed its MCP config) after changing model names. `resource_mgr.py cloud|db` rewrites `.env` and calls `reload_settings()` automatically.
+Restart `worker.py` (and reload your MCP client if you changed its MCP config) after changing model names. `resource_mgr.py cloud|db|pipeline|target` rewrites `.env` and calls `reload_settings()` automatically.
 
 ### LLM Backends
 
@@ -173,10 +191,44 @@ uv run python scripts/resource_mgr.py cloud on   # enable cloud LLM for new page
 uv run python scripts/resource_mgr.py cloud off  # all local (default)
 uv run python scripts/resource_mgr.py db on      # local SQLite (default)
 uv run python scripts/resource_mgr.py db off     # switch to DATABASE_URL
+uv run python scripts/resource_mgr.py paths      # show content root, active target, resolved wiki dir
+uv run python scripts/resource_mgr.py pipeline legacy   # legacy | etl | compare
+uv run python scripts/resource_mgr.py target legacy     # legacy | etl
 uv run python scripts/resource_mgr.py dev        # free RAM + pause Docker
 uv run python scripts/resource_mgr.py compile    # load model + resume Docker
 uv run python scripts/resource_mgr.py llm      # show .env models vs LM Studio/Ollama
 ```
+
+### ETL Daytime Testing Commands
+
+```bash
+# Show active write target and ETL staging counters
+uv run python scripts/resource_mgr.py paths
+uv run python scripts/resource_mgr.py etl-status
+
+# Run ETL skeleton stages (dry-run by default)
+uv run python scripts/resource_mgr.py etl-run all --limit 10
+
+# Apply ETL stages to current write target
+uv run python scripts/resource_mgr.py etl-run all --apply --limit 10
+
+# Replay ETL over a time window
+uv run python scripts/resource_mgr.py etl-replay --since "2026-06-01 00:00:00" --until "2026-06-01 23:59:59" --limit 200
+
+# Re-run route/distill directly from persisted staging rows
+uv run python scripts/resource_mgr.py etl-run route --from-staging --apply --limit 100
+uv run python scripts/resource_mgr.py etl-run distill --from-staging --apply --limit 100
+```
+
+### Wiki Content Targets
+
+PulseWiki now separates the wiki code package from the generated markdown content store:
+
+- `scripts/wiki/` contains Python helpers for reading and writing module pages.
+- `wiki_content/legacy/` is the current output target for the legacy realtime pipeline.
+- `wiki_content/etl/` is reserved for the new staged ETL pipeline.
+
+By default, the worker writes to `wiki_content/legacy/`. You can inspect the active target with `resource_mgr.py paths`, or switch the configured target with `resource_mgr.py target etl` before running ETL-specific flows.
 
 ### Data Sources
 
@@ -193,7 +245,7 @@ All data sources are **optional**. The poller is the easiest way to get started 
 
 GitHub webhook currently supports `pull_request`, `pull_request_review`, `pull_request_review_comment`, `issues`, `issue_comment`, `discussion`, and `discussion_comment` events.
 
-**Knowledge base digest:** Point `KNOWLEDGE_BASE_PATH` at your Obsidian vault's `wiki/` subfolder (e.g. `concepts/`, `summaries/`). The scanner uses MD5 + token-similarity dedup so unchanged notes skip the LLM. Output lands in `wiki/knowledge/…` with sections like Overview, Key Insights, and Sources. Run manually with `uv run python scripts/ingest/knowledge_base_scanner.py --once`, or schedule daily on a self-hosted Mac runner — see [docs/github-actions-setup.md](docs/github-actions-setup.md).
+**Knowledge base digest:** Point `KNOWLEDGE_BASE_PATH` at your Obsidian vault's `wiki/` subfolder (e.g. `concepts/`, `summaries/`). The scanner uses MD5 + token-similarity dedup so unchanged notes skip the LLM. Legacy output lands in `wiki_content/legacy/knowledge/…` with sections like Overview, Key Insights, and Sources. Run manually with `uv run python scripts/ingest/knowledge_base_scanner.py --once`, or schedule daily on a self-hosted Mac runner — see [docs/github-actions-setup.md](docs/github-actions-setup.md).
 
 ---
 
@@ -236,9 +288,11 @@ pulse-wiki/
 │   │   └── manager.py          ← read/write Obsidian .md with YAML frontmatter
 │   ├── mcp_server.py           ← FastMCP stdio server (7 tools)
 │   ├── ingest_diff.py          ← CLI: push diff manually + AST syntax validation
-│   └── resource_mgr.py         ← CLI: init / status / list / cloud / db / dev
+│   └── resource_mgr.py         ← CLI: init / status / list / paths / pipeline / target / cloud / db / dev
 ├── tests/                      ← 66 tests
-├── wiki/                       ← generated Obsidian pages (committed as living docs)
+├── wiki_content/
+│   ├── legacy/                 ← generated pages for the legacy realtime pipeline
+│   └── etl/                    ← generated pages for the staged ETL pipeline
 ├── docs/
 │   ├── SOP.md                  ← full setup and operations guide
 │   ├── architecture.md         ← ASCII + Mermaid architecture diagrams
@@ -246,6 +300,8 @@ pulse-wiki/
 │   └── github-actions-setup.md ← self-hosted runner for daily knowledge digest
 ├── demo.sh                     ← one-command MVP demo
 ├── dev_up.sh                   ← debug bring-up (single-event, test_env, optional --cloud)
+├── scripts/start_legacy_stack.sh ← one-click legacy realtime ingestion stack
+├── scripts/start_etl_stack.sh    ← one-click ETL staged ingestion stack
 ├── test_env.py                 ← environment checker (connectivity + credentials)
 ├── .env.example                ← config template
 └── pyproject.toml              ← uv project file, Python 3.12, deps
@@ -280,7 +336,7 @@ Full index: **[docs/README.md](docs/README.md)**
 | [docs/knowledge-base-verification.md](docs/knowledge-base-verification.md) | E2E checklist (scan → distill → dedup) |
 | [docs/runbook.md](docs/runbook.md) | Operational runbook for startup, monitoring, and recovery |
 
-**Scripts:** `demo.sh` (MVP demo) · `dev_up.sh` (debug, single-event) · `scripts/verify_mcp_ingest.sh` (synthetic GitHub/Slack ingestion verification).
+**Scripts:** `demo.sh` (MVP demo) · `dev_up.sh` (debug, single-event) · `scripts/start_legacy_stack.sh` (legacy one-click stack) · `scripts/start_etl_stack.sh` (etl one-click stack) · `scripts/verify_mcp_ingest.sh` (synthetic GitHub/Slack ingestion verification).
 
 ---
 

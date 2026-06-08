@@ -344,7 +344,7 @@ try:
 except Exception as exc:
     fail(f"DB directory not writable ({db_dir}): {exc}")
 
-wiki_dir = Path(s.wiki_dir)
+wiki_dir = Path(s.resolved_wiki_dir)
 try:
     wiki_dir.mkdir(parents=True, exist_ok=True)
     test_file = wiki_dir / ".write_test"
