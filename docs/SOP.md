@@ -2,11 +2,15 @@
 
 本 SOP 面向企业级值班与交付团队，定义 ETL v1.3 的标准运维流程、背压治理与数据留存策略。
 
+**所有时间戳均使用亚洲/上海时区 (Asia/Shanghai = UTC+8, CST)，24小时制。**  
+代码中 `datetime.now()` / SQLite `CURRENT_TIMESTAMP` / GitHub Actions cron 均已配置为自动使用 Shanghai 时区。
+
 实现对齐基线：
 - [scripts/db.py](../scripts/db.py#L226)
-- [scripts/distill/worker.py](../scripts/distill/worker.py#L139)
+- [scripts/distill/worker.py](../scripts/distill/worker.py#L139) — 含 `os.environ['TZ'] = 'Asia/Shanghai'`
 - [scripts/resource_mgr.py](../scripts/resource_mgr.py#L296)
 - [scripts/resource_mgr.py](../scripts/resource_mgr.py#L319)
+- [.github/workflows/daily-knowledge-digest.yml](../.github/workflows/daily-knowledge-digest.yml#L14) — 含 `env: TZ: Asia/Shanghai` 和 `concurrency` 配置
 
 ## 1. 运行模式与职责边界
 

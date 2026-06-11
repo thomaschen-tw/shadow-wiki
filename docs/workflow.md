@@ -105,13 +105,13 @@ sequenceDiagram
         Worker->>Out: prepend to ## Key Insights
     end
 
-    Cron->>Cron: git add wiki/ && commit && push
+    Cron->>Cron: git add wiki_content/ && commit && push
 ```
 
-**Output shape** (under `wiki/knowledge/`, not `wiki/auth/`):
+**Output shape** (under `wiki_content/legacy/knowledge/`, not `wiki_content/legacy/auth/`):
 
 ```
-wiki/knowledge/
+wiki_content/legacy/knowledge/
 ├── concepts/
 │   └── rag-retrieval-augmented-generation.md
 ├── ai/

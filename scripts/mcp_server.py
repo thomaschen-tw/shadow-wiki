@@ -1,8 +1,14 @@
 import json
+import os
 import re
 import sys
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
+
+# Ensure all datetime operations use Asia/Shanghai timezone
+os.environ['TZ'] = 'Asia/Shanghai'
+time.tzset()
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 

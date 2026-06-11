@@ -177,8 +177,8 @@ uv run python scripts/ingest/knowledge_base_scanner.py --once
 每日 09:00 CST，self-hosted Mac runner：
 
 1. `knowledge_base_scanner.py --once`
-2. 批量 `process_event`（workflow 内联 Python）
-3. `git add wiki/` → commit → push
+2. `resource_mgr.py etl-run all --apply --limit 200`
+3. `git add wiki_content/` → commit → push
 
 见 [github-actions-setup.md](github-actions-setup.md)、`.github/workflows/daily-knowledge-digest.yml`。
 
@@ -188,7 +188,7 @@ uv run python scripts/ingest/knowledge_base_scanner.py --once
 
 ```bash
 uv run pytest -v
-# 预期：48 passed
+# 预期：当前基线约 78 passed（以仓库当下为准）
 ```
 
 ---

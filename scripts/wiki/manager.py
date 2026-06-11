@@ -1,7 +1,14 @@
 import copy
+import os
+import time
 from datetime import datetime
 from pathlib import Path
 import frontmatter
+
+# Ensure all datetime operations use Asia/Shanghai timezone
+os.environ['TZ'] = 'Asia/Shanghai'
+time.tzset()
+
 from scripts.config import get_settings
 from scripts.db import upsert_module, update_fts
 

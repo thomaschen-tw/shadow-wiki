@@ -97,12 +97,14 @@ bash scripts/start_etl_stack.sh              # etl staged runner + connectors
 bash scripts/start_legacy_stack.sh --port 9000
 
 # ETL staged stack (forces PIPELINE_MODE=etl, WIKI_WRITE_TARGET=etl)
-# runs: resource_mgr.py etl-run all --apply --limit 50 every 30 seconds
+# runs: resource_mgr.py etl-loop --apply --limit 50 --base-sleep 30
 bash scripts/start_etl_stack.sh --port 9000 --interval 30 --limit 50
 
 # ETL validation mode (no writes)
 bash scripts/start_etl_stack.sh --dry-run --interval 20
 ```
+
+First-time local testing: see [docs/testing-guide.md](docs/testing-guide.md).
 
 ### Development & debugging (`dev_up.sh`)
 

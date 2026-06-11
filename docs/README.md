@@ -4,7 +4,8 @@
 |----------|----------|----------|
 | [../README.md](../README.md) | Everyone | Quick start, architecture diagram, `dev_up.sh` and stack starter commands |
 | [SOP.md](SOP.md) | Operators | Full setup, `.env`, connectors, troubleshooting |
-| [etl-stack-flow.md](etl-stack-flow.md) | Operators / Engineers | Complete ETL startup stack flow explanation, white-day validation scenarios |
+| [etl-stack-flow.md](etl-stack-flow.md) | Operators / Engineers | ETL v1.3 data flow: typed clean, deterministic route, adaptive loop |
+| [testing-guide.md](testing-guide.md) | Engineers / QA | New-user local testing guide: smoke, ETL dry-run/apply, replay, regression |
 | [workflow.md](workflow.md) | Developers | Sequence diagrams, `raw/` vs `wiki/` outputs |
 | [architecture.md](architecture.md) | Architects | Component diagrams (ASCII + Mermaid) |
 | [architecture-roadmap.md](architecture-roadmap.md) | Architects | Production gaps, P0/P1/P2 backlog |

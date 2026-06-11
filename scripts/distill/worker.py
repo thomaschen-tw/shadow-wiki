@@ -1,11 +1,16 @@
 import json
 import logging
+import os
 import re
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+# Ensure all datetime operations use Asia/Shanghai timezone
+os.environ['TZ'] = 'Asia/Shanghai'
+time.tzset()
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 

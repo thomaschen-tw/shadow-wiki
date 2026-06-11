@@ -19,6 +19,7 @@ build/
 .pytest_cache/
 .coverage
 htmlcov/
+artifacts/
 
 # ── PulseWiki runtime data (generated at runtime, not source) ───────────────
 db/
