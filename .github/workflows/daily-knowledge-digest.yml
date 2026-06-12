@@ -15,6 +15,9 @@ jobs:
     timeout-minutes: 90
     env:
       TZ: Asia/Shanghai
+      VIRTUAL_ENV: ""
+      UV_PROJECT_ENVIRONMENT: .venv
+      KNOWLEDGE_BASE_PATH: ${{ vars.KNOWLEDGE_BASE_PATH }}
 
     steps:
       - name: Checkout repo
@@ -33,6 +36,31 @@ jobs:
 
       - name: Verify environment
         run: uv run python test_env.py || true   # warn but never fail the job
+
+      - name: Normalize runner environment
+        run: |
+          echo "Workspace: $GITHUB_WORKSPACE"
+          echo "VIRTUAL_ENV='${VIRTUAL_ENV}' (forced empty)"
+          echo "UV_PROJECT_ENVIRONMENT='${UV_PROJECT_ENVIRONMENT}'"
+          if [ -z "${KNOWLEDGE_BASE_PATH}" ]; then
+            if [ -d "$GITHUB_WORKSPACE/wiki" ]; then
+              echo "KNOWLEDGE_BASE_PATH=$GITHUB_WORKSPACE/wiki" >> "$GITHUB_ENV"
+              echo "KNOWLEDGE_BASE_PATH was empty; fallback to $GITHUB_WORKSPACE/wiki"
+            else
+              echo "KNOWLEDGE_BASE_PATH is empty and fallback folder does not exist"
+              exit 1
+            fi
+          else
+            echo "KNOWLEDGE_BASE_PATH provided by repo variable"
+          fi
+
+      - name: Validate knowledge base path
+        run: |
+          echo "Resolved KNOWLEDGE_BASE_PATH=${KNOWLEDGE_BASE_PATH}"
+          if [ ! -d "${KNOWLEDGE_BASE_PATH}" ]; then
+            echo "KNOWLEDGE_BASE_PATH does not exist: ${KNOWLEDGE_BASE_PATH}"
+            exit 1
+          fi
 
       - name: Initialise database
         run: uv run python scripts/resource_mgr.py init
