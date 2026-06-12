@@ -25,6 +25,28 @@ def test_webhook_rejects_bad_signature(tmp_db, monkeypatch):
     assert response.status_code == 403
 
 
+def test_webhook_requires_secret_when_enforced(tmp_db, monkeypatch):
+    monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "")
+    monkeypatch.setenv("GITHUB_WEBHOOK_REQUIRE_SECRET", "true")
+    import scripts.config as cfg
+    cfg._settings = None
+    from scripts.db import init_db, get_pending_events
+    init_db()
+
+    from scripts.ingest.github_connector import app
+    client = TestClient(app)
+    response = client.post(
+        "/webhook/github",
+        content=json.dumps({"action": "opened"}),
+        headers={
+            "Content-Type": "application/json",
+            "X-GitHub-Event": "pull_request",
+        },
+    )
+    assert response.status_code == 403
+    assert len(get_pending_events()) == 0
+
+
 def test_webhook_accepts_pr_opened(tmp_db, monkeypatch):
     monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "")
     import scripts.config as cfg
@@ -260,3 +282,77 @@ def test_webhook_queues_issue_opened_event(tmp_db, monkeypatch):
     assert raw["issue_number"] == 21
     assert raw["title"] == "Token expiry too aggressive"
     assert raw["labels"] == ["bug", "auth"]
+
+
+def test_webhook_queues_discussion_created_event(tmp_db, monkeypatch):
+    monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "")
+    import scripts.config as cfg
+    cfg._settings = None
+    from scripts.db import init_db, get_pending_events
+    init_db()
+
+    from scripts.ingest.github_connector import app
+    client = TestClient(app)
+
+    payload = {
+        "action": "created",
+        "discussion": {
+            "id": 5001,
+            "number": 42,
+            "title": "Best practices for session management",
+            "body": "What are the recommended patterns for Redis session storage?",
+            "html_url": "https://github.com/owner/repo/discussions/42",
+            "user": {"login": "alice"},
+            "category": {"name": "Architecture"},
+        },
+    }
+    response = client.post(
+        "/webhook/github",
+        content=json.dumps(payload),
+        headers={"Content-Type": "application/json", "X-GitHub-Event": "discussion"},
+    )
+    assert response.status_code == 200
+    events = get_pending_events()
+    assert len(events) == 1
+    assert events[0]["event_type"] == "discussion"
+    raw = json.loads(events[0]["raw_json"])
+    assert raw["number"] == 42
+    assert raw["title"] == "Best practices for session management"
+    assert raw["category"] == "Architecture"
+
+
+def test_webhook_queues_discussion_comment_event(tmp_db, monkeypatch):
+    monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "")
+    import scripts.config as cfg
+    cfg._settings = None
+    from scripts.db import init_db, get_pending_events
+    init_db()
+
+    from scripts.ingest.github_connector import app
+    client = TestClient(app)
+
+    payload = {
+        "action": "created",
+        "discussion": {
+            "number": 42,
+            "title": "Best practices for session management",
+        },
+        "comment": {
+            "user": {"login": "bob"},
+            "body": "Redis with TTL is the standard approach.",
+            "html_url": "https://github.com/owner/repo/discussions/42#discussioncomment-1",
+        },
+    }
+    response = client.post(
+        "/webhook/github",
+        content=json.dumps(payload),
+        headers={"Content-Type": "application/json", "X-GitHub-Event": "discussion_comment"},
+    )
+    assert response.status_code == 200
+    events = get_pending_events()
+    assert len(events) == 1
+    assert events[0]["event_type"] == "discussion_comment"
+    raw = json.loads(events[0]["raw_json"])
+    assert raw["discussion_number"] == 42
+    assert raw["user"] == "bob"
+    assert "Redis" in raw["body"]

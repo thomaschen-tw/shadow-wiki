@@ -2,13 +2,13 @@
 
 > Architecture: [docs/architecture.md](docs/architecture.md) · Full SOP: [docs/SOP.md](docs/SOP.md) · GitHub setup: [docs/github-setup.md](docs/github-setup.md) · Roadmap: [docs/architecture-roadmap.md](docs/architecture-roadmap.md)
 
-A self-updating technical wiki that ingests GitHub PRs, Slack messages, Linear tickets, and local files — distilling them via a hybrid local/cloud LLM pipeline into an Obsidian vault exposed as an MCP server.
+A self-updating technical wiki that ingests GitHub PRs, Slack messages, and local files — distilling them via a hybrid local/cloud LLM pipeline into an Obsidian vault exposed as an MCP server.
 
 ## Essential Commands
 
 ```bash
 uv sync                                 # install deps (Python 3.12 required)
-uv run pytest -v                        # run all 61 tests
+uv run pytest -v                        # run all 66 tests
 uv run python test_env.py              # verify env/connectivity before starting
 uv run python scripts/resource_mgr.py init   # initialise SQLite (db/shadow.db)
 uv run python scripts/distill/worker.py &    # distillation daemon (polls every 30s)
@@ -23,7 +23,7 @@ See [docs/architecture.md](docs/architecture.md) for the full diagram. Data flow
 ```
 Connectors (ingest/) → SQLite event queue (db/shadow.db)
   → worker.py [classify → summarize → create/append]
-  → wiki/{module}.md (Obsidian markdown + YAML frontmatter)
+  → wiki_content/{legacy|etl}/{module}.md (Obsidian markdown + YAML frontmatter)
   → mcp_server.py (FastMCP stdio) → MCP clients (VS Code / Claude Code / Cursor)
 ```
 
@@ -34,14 +34,14 @@ Event status lifecycle: `pending` → `processing` → `done` | `failed`
 | File | Purpose |
 |------|---------|
 | `scripts/config.py` | Pydantic-settings: all config from `.env` |
-| `scripts/db.py` | SQLite: `push_event`, `get_pending_events`, FTS5 search, `upsert_module` |
+| `scripts/db.py` | SQLite: `push_event`, `get_pending_events`, `etl_staging` stage records, FTS5 search |
 | `scripts/distill/llm_router.py` | Routes `TaskType` enum to local (LM Studio/Ollama) or cloud LLM |
 | `scripts/distill/worker.py` | Event loop: `_handle_code_event` vs `_handle_knowledge_event` dispatch |
 | `scripts/distill/prompts.py` | All LLM prompt templates |
 | `scripts/wiki/manager.py` | Read/write wiki `.md` files via `python-frontmatter` |
 | `scripts/mcp_server.py` | 7 FastMCP tools exposed over stdio |
 | `scripts/ingest_diff.py` | CLI: push diff manually (AST syntax validation gate) |
-| `scripts/resource_mgr.py` | CLI: init / status / list / cloud / db / dev / compile / llm |
+| `scripts/resource_mgr.py` | CLI: init / status / list / paths / pipeline / target / etl-status / etl-run / etl-replay |
 | `test_env.py` | Connectivity + credential validation |
 
 ## Conventions & Pitfalls
@@ -58,7 +58,8 @@ Event status lifecycle: `pending` → `processing` → `done` | `failed`
 
 ### Worker / LLM
 - `CLASSIFY`, `SUMMARIZE`, `APPEND`, `QUERY` → always local LLM. `CREATE_PAGE`, `SYNTHESIZE`, `RUNBOOK` → cloud when `USE_CLOUD_LLM=true`.
-- `source=knowledge_base` events use different prompts and write to `wiki/knowledge/`. All other sources write to `wiki/{module}/`.
+- `source=knowledge_base` events use different prompts and currently write to `wiki_content/legacy/knowledge/` unless `WIKI_WRITE_TARGET=etl`.
+- ETL skeleton stages persist to `etl_staging` (`clean` → `route` → `distill`) for daytime replay and stage-level observability.
 - LLM outputs are often JSON strings — use `_parse_json_list()` and `_safe_json()` helpers in `worker.py` rather than bare `json.loads()`.
 - Module paths are slugified: lowercase, non-word chars removed, max 60 chars (see `_slugify()`).
 - Slack `thread_reply` events and GitHub `pr_review`/`pr_comment` events are handled by dedicated functions (`_handle_slack_thread_reply`, `_handle_review_event`).
@@ -66,13 +67,13 @@ Event status lifecycle: `pending` → `processing` → `done` | `failed`
 - When `## Known Issues` reaches 2+ entries and `## Runbooks` is absent, a `RUNBOOK` call generates the section automatically.
 
 ### Wiki / Frontmatter
-- Wiki files live at `wiki/{module_path}.md` where `module_path` uses `snake_case/with_slashes` (e.g. `auth/session`, `knowledge/ai/rag-vs-kag`).
+- Wiki files live at `wiki_content/{target}/{module_path}.md` where `target` is `legacy` or `etl`.
 - Frontmatter keys: `module`, `last_updated`, `recent_prs`, `recent_events`, `owners`, `known_issues`, `slack_threads`, `tags`.
 - Standard sections: `## Overview`, `## Recent Changes`, `## Known Issues`, `## Related Modules`, `## Runbooks`; KB pages use `## Key Insights`.
 - `append_to_section()` top-prepends a `### {YYYY-MM-DD} ({pr_number})` subsection.
 
 ### Tests
-- All tests use the `tmp_db` fixture (in `tests/conftest.py`) which monkeypatches `DB_PATH` and `WIKI_DIR` and resets `cfg._settings = None` before and after each test.
+- All tests use the `tmp_db` fixture (in `tests/conftest.py`) which monkeypatches `DB_PATH` and `WIKI_DIR` (legacy target) and resets `cfg._settings = None` before and after each test.
 - Mock `call_llm` with `side_effect` returning a list of JSON strings in call order.
 - Integration test in `tests/test_integration.py` covers the full push → worker → wiki → MCP search pipeline.
 - MCP tool tests import functions directly from `scripts.mcp_server` — they bypass the `FunctionTool` registration loop, so module-level import must succeed cleanly.
@@ -93,6 +94,12 @@ Verify: `uv run python scripts/resource_mgr.py llm` · Reload worker after chang
 ```bash
 uv run python scripts/resource_mgr.py cloud on|off  # cloud LLM for new pages
 uv run python scripts/resource_mgr.py db on|off     # local SQLite vs DATABASE_URL
+uv run python scripts/resource_mgr.py paths         # show active content roots/targets
+uv run python scripts/resource_mgr.py pipeline legacy|etl|compare
+uv run python scripts/resource_mgr.py target legacy|etl
+uv run python scripts/resource_mgr.py etl-status
+uv run python scripts/resource_mgr.py etl-run all --limit 10 [--apply]
+uv run python scripts/resource_mgr.py etl-replay --since "YYYY-MM-DD HH:MM:SS" --until "YYYY-MM-DD HH:MM:SS" [--apply]
 uv run python scripts/resource_mgr.py dev           # free RAM + pause Docker
 uv run python scripts/resource_mgr.py compile       # load model + resume Docker
 ```
@@ -119,6 +126,7 @@ Set `KNOWLEDGE_BASE_PATH` in `.env` to your vault's `wiki/` folder. Scanner walk
 uv run python scripts/ingest/knowledge_base_scanner.py --dry-run   # preview
 uv run python scripts/ingest/knowledge_base_scanner.py --once        # queue events
 # worker processes → wiki/knowledge/…
+# worker processes → wiki_content/legacy/knowledge/… (or etl target if switched)
 ```
 
 Daily automation: `.github/workflows/daily-knowledge-digest.yml` on a self-hosted Mac runner — see `docs/github-actions-setup.md`.

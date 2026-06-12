@@ -2,10 +2,10 @@
 Application settings — loaded from `.env` (project root).
 
 Each field maps to an environment variable (uppercase, same name):
-  lmstudio_model  ←  LMSTUDIO_MODEL in .env
-  ollama_model    ←  OLLAMA_MODEL
-  qwen_cloud_model ← QWEN_CLOUD_MODEL
-  …
+    lmstudio_model  ←  LMSTUDIO_MODEL in .env
+    ollama_model    ←  OLLAMA_MODEL
+    qwen_cloud_model ← QWEN_CLOUD_MODEL
+    …
 
 Change models and API keys in `.env` only. Values in Python below are fallbacks
 when a variable is missing (e.g. fresh clone before `cp .env.example .env`).
@@ -13,6 +13,7 @@ After editing `.env`, restart long-running processes (worker, MCP) or call
 `reload_settings()` so they pick up changes.
 """
 from enum import Enum
+from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -28,6 +29,17 @@ class CloudBackend(str, Enum):
     CLAUDE = "claude"
     QWEN_CLOUD = "qwen_cloud"
     DEEPSEEK = "deepseek"
+
+
+class PipelineMode(str, Enum):
+    LEGACY = "legacy"
+    ETL = "etl"
+    COMPARE = "compare"
+
+
+class WikiWriteTarget(str, Enum):
+    LEGACY = "legacy"
+    ETL = "etl"
 
 
 class Settings(BaseSettings):
@@ -102,9 +114,34 @@ class Settings(BaseSettings):
     )
 
     # System
-    wiki_dir: str = Field(default="./wiki", validation_alias="WIKI_DIR")
+    pipeline_mode: PipelineMode = Field(default=PipelineMode.LEGACY, validation_alias="PIPELINE_MODE")
+    wiki_write_target: WikiWriteTarget = Field(default=WikiWriteTarget.LEGACY, validation_alias="WIKI_WRITE_TARGET")
+    wiki_content_dir: str = Field(default="./wiki_content", validation_alias="WIKI_CONTENT_DIR")
+    legacy_wiki_subdir: str = Field(default="legacy", validation_alias="LEGACY_WIKI_SUBDIR")
+    etl_wiki_subdir: str = Field(default="etl", validation_alias="ETL_WIKI_SUBDIR")
+    wiki_dir: str = Field(default="", validation_alias="WIKI_DIR")
     db_path: str = Field(default="./db/shadow.db", validation_alias="DB_PATH")
     raw_dir: str = Field(default="./raw", validation_alias="RAW_DIR")
+
+    @property
+    def resolved_wiki_dir(self) -> str:
+        if self.wiki_dir:
+            return self.wiki_dir
+        return self.get_wiki_dir(self.wiki_write_target)
+
+    @property
+    def legacy_wiki_dir(self) -> str:
+        return str(Path(self.wiki_content_dir) / self.legacy_wiki_subdir)
+
+    @property
+    def etl_wiki_dir(self) -> str:
+        return str(Path(self.wiki_content_dir) / self.etl_wiki_subdir)
+
+    def get_wiki_dir(self, target: WikiWriteTarget | str) -> str:
+        target_value = target.value if isinstance(target, WikiWriteTarget) else target
+        if target_value == WikiWriteTarget.ETL.value:
+            return self.etl_wiki_dir
+        return self.legacy_wiki_dir
 
 
 _settings: Settings | None = None

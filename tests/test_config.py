@@ -44,6 +44,29 @@ def test_lmstudio_model_loaded_from_env(monkeypatch):
     assert s.lmstudio_model == "qwen/qwen3.6-27b"
 
 
+def test_default_pipeline_mode_and_write_target():
+    from scripts.config import Settings, PipelineMode, WikiWriteTarget
+    s = Settings(_env_file=None)
+    assert s.pipeline_mode == PipelineMode.LEGACY
+    assert s.wiki_write_target == WikiWriteTarget.LEGACY
+    assert s.resolved_wiki_dir.endswith("wiki_content/legacy")
+
+
+def test_write_target_switches_resolved_wiki_dir(monkeypatch):
+    monkeypatch.setenv("WIKI_WRITE_TARGET", "etl")
+    from scripts.config import Settings
+    s = Settings(_env_file=None)
+    assert s.resolved_wiki_dir.endswith("wiki_content/etl")
+
+
+def test_explicit_wiki_dir_overrides_write_target(monkeypatch):
+    monkeypatch.setenv("WIKI_WRITE_TARGET", "etl")
+    monkeypatch.setenv("WIKI_DIR", "/tmp/custom-wiki")
+    from scripts.config import Settings
+    s = Settings(_env_file=None)
+    assert s.resolved_wiki_dir == "/tmp/custom-wiki"
+
+
 def test_get_settings_singleton(monkeypatch):
     import scripts.config as cfg
     cfg._settings = None
@@ -70,6 +93,20 @@ def test_invalid_local_backend_raises(monkeypatch):
 
 def test_invalid_cloud_backend_raises(monkeypatch):
     monkeypatch.setenv("CLOUD_LLM_BACKEND", "gpt4")
+    from scripts.config import Settings
+    with pytest.raises(ValidationError):
+        Settings()
+
+
+def test_invalid_pipeline_mode_raises(monkeypatch):
+    monkeypatch.setenv("PIPELINE_MODE", "nightly")
+    from scripts.config import Settings
+    with pytest.raises(ValidationError):
+        Settings()
+
+
+def test_invalid_write_target_raises(monkeypatch):
+    monkeypatch.setenv("WIKI_WRITE_TARGET", "published")
     from scripts.config import Settings
     with pytest.raises(ValidationError):
         Settings()

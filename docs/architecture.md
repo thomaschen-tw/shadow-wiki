@@ -6,17 +6,17 @@
 ┌───────────────────────────────────────────────────────────────────────┐
 │                          DATA SOURCES                                 │
 │                                                                       │
-│  GitHub PR/Review   Slack Messages   Linear Tickets   Local Files     │
-│  (webhook :9000)    (Socket Mode)    (GraphQL poll)   (MD5 scan)      │
+│  GitHub PR/Review   Slack Messages   Local Files                       │
+│  (webhook :9000)    (Socket Mode)    (MD5 scan)                        │
 │  Obsidian vault wiki/  (KNOWLEDGE_BASE_PATH — local Mac, daily GHA)   │
 └────────┬───────────────┬─────────────────┬────────────────┬──────┬────┘
          │               │                 │                │      │
          ▼               ▼                 ▼                ▼      ▼
 ┌───────────────────────────────────────────────────────────────────────┐
 │                       INGESTION LAYER                                 │
-│  github_connector.py  slack_connector.py  linear_connector.py        │
-│  ingest_diff.py (CLI + AST syntax validation gate)                   │
-│  local_scanner.py          knowledge_base_scanner.py (MD5 + similarity)│
+│  github_connector.py  slack_connector.py  local_scanner.py             │
+│  ingest_diff.py (CLI + AST syntax validation gate)                     │
+│  knowledge_base_scanner.py (MD5 + similarity)                          │
 └─────────────────────────────┬─────────────────────────────────────────┘
                                │  push_event()
                                ▼
@@ -86,7 +86,6 @@ flowchart TD
     subgraph sources["Data Sources"]
         GH["GitHub PR\n(webhook)"]
         SL["Slack\n(Socket Mode)"]
-        LI["Linear\n(GraphQL poll)"]
         FS["Local Files\n(MD5 scan)"]
         KB["Obsidian vault\nwiki/"]
         CLI["Manual Diff\n(CLI)"]
@@ -95,7 +94,6 @@ flowchart TD
     subgraph ingest["Ingestion Layer"]
         GH_C["github_connector.py\n:9000"]
         SL_C["slack_connector.py"]
-        LI_C["linear_connector.py"]
         LS_C["local_scanner.py"]
         KB_C["knowledge_base_scanner.py"]
         ID["ingest_diff.py\n+ AST validation"]
@@ -116,19 +114,18 @@ flowchart TD
     end
 
     subgraph mcp["MCP Layer"]
-        MCP["mcp_server.py\nFastMCP stdio\n6 tools"]
+        MCP["mcp_server.py\nFastMCP stdio\n7 tools"]
     end
 
     CC["MCP client\n(developer)"]
 
     GH --> GH_C
     SL --> SL_C
-    LI --> LI_C
     FS --> LS_C
     KB --> KB_C
     CLI --> ID
 
-    GH_C & SL_C & LI_C & LS_C & KB_C & ID --> DB
+    GH_C & SL_C & LS_C & KB_C & ID --> DB
 
     DB -->|pending events| W
     W -->|classify/summarize/append| LOCAL

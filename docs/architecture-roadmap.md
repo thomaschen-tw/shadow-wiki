@@ -42,7 +42,7 @@
 #### 【事件去重键与摄取背压（Dedupe Key + Ingest Backpressure）】
 
 **架构痛点分析：**  
-`knowledge_base_scanner` 有 MD5/相似度门控，但 **GitHub/Slack/Linear 路径没有等价的 `dedupe_key`**（同一 PR `synchronize` 五次 = 五条 pending）。Connector 永不反压：Webhook 返回 200 即可，worker 跟不上时 **只有队列变长**。30s 轮询 + `limit=10` 意味着理论吞吐上限约 **20 event/分钟**，且每条 code event 常触发 3+ 次 LLM 调用——数学上必爆仓。
+`knowledge_base_scanner` 有 MD5/相似度门控，但 **GitHub/Slack 路径没有等价的 `dedupe_key`**（同一 PR `synchronize` 五次 = 五条 pending）。Connector 永不反压：Webhook 返回 200 即可，worker 跟不上时 **只有队列变长**。30s 轮询 + `limit=10` 意味着理论吞吐上限约 **20 event/分钟**，且每条 code event 常触发 3+ 次 LLM 调用——数学上必爆仓。
 
 **推荐的生产级实现方案：**  
 - 表字段：`dedupe_key TEXT UNIQUE`（如 `github:pr:owner/repo:42`、`slack:channel:ts`）。  
@@ -268,10 +268,10 @@ stdio MCP 假定 **单用户本机**。远程团队共用 wiki 时，stdio 不�
 #### 【数据源 ACL / 摄取过滤（Ingest ACL）】
 
 **架构痛点分析：**  
-Slack 全频道、Linear 全团队、GitHub 全 repo 进同一 wiki — **#finance、#hr、private repo** 会泄漏到 Cursor 可检索的平面。这是 **合规雷**，不是功能偏好。
+Slack 全频道、GitHub 全 repo 进同一 wiki — **#finance、#hr、private repo** 会泄漏到 Cursor 可检索的平面。这是 **合规雷**，不是功能偏好。
 
 **推荐的生产级实现方案：**  
-- `.env` + DB 表：`INGEST_ALLOW_SLACK_CHANNELS`、`INGEST_DENY_LINEAR_TEAMS`、`GITHUB_ALLOWED_PATHS`。  
+- `.env` + DB 表：`INGEST_ALLOW_SLACK_CHANNELS`、`GITHUB_ALLOWED_PATHS`。  
 - Connector 入口强制过滤；审计日志 `ingest_audit`。  
 - MCP 侧：**敏感 module 前缀不可搜索**（`confidential/*` 不进 FTS/向量索引）。
 

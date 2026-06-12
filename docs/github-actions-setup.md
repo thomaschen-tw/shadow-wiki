@@ -3,6 +3,8 @@
 PulseWiki uses a **self-hosted runner** so GitHub Actions jobs run on your Mac and
 can access your local Obsidian vault. This is a one-time setup (~10 minutes).
 
+**CRITICAL:** GitHub only runs scheduled jobs if a runner is online at trigger time. If your Mac is offline at 10:00 Shanghai, the job will be skipped for that day. To catch up, manually trigger from GitHub UI (see "Late Startup Recovery" below).
+
 Daily workflow schedule is **10:00 Asia/Shanghai** (`0 2 * * *` in UTC cron).
 
 ---
@@ -48,6 +50,42 @@ sudo ./svc.sh install
 sudo ./svc.sh start
 
 # Verify it is running
+```bash
+sudo ./svc.sh status
+```
+
+---
+
+## Step 3 — Verify Timezone Configuration
+
+The daily workflow uses **Asia/Shanghai (CST, UTC+8)** for all timestamps. Verify your runner's timezone:
+
+```bash
+date
+# Should show: TZ=Asia/Shanghai or similar. If wrong, edit your .env:
+echo 'TZ=Asia/Shanghai' >> ~/.zshrc
+source ~/.zshrc
+date  # verify again
+```
+
+---
+
+## Late Startup Recovery
+
+If your Mac is offline at 10:00 Shanghai (scheduled trigger time), the daily job will be skipped.
+
+**To catch up manually:**
+
+1. Open GitHub: `https://github.com/thomaschen-tw/pulse-wiki/actions`
+2. Select **Daily Knowledge Digest** workflow
+3. Click **Run workflow** (top right) → **Branch: test** → **Run**
+4. The job will process any pending knowledge base notes and commit updates
+
+**Concurrency protection:** Only one digest job runs at a time. If a job is already running, a new manual trigger will wait in queue.
+
+---
+
+## Verify it is running
 ./svc.sh status
 ```
 

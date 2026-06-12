@@ -125,5 +125,5 @@ echo '{
 
 echo -e "\n${GREEN}✓ MVP demo complete!${NC}"
 echo -e "  Worker running (PID $WORKER_PID) — Ctrl+C to stop"
-echo -e "  Wiki files are in: $SCRIPT_DIR/wiki/"
+echo -e "  Wiki files are in: $SCRIPT_DIR/wiki_content/legacy/"
 wait $WORKER_PID

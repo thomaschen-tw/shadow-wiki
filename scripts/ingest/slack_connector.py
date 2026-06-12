@@ -51,8 +51,17 @@ def _handle_request(client: SocketModeClient, req: SocketModeRequest) -> None:
     })
 
     event_type = "thread_reply" if is_thread_reply else "message"
-    push_event("slack", event_type, raw_json)
-    logger.info("Queued Slack %s from channel %s", event_type, event.get("channel"))
+    
+    # For thread replies, find parent message and link via parent_event_id
+    parent_event_id = None
+    if is_thread_reply:
+        # In production, you'd look up the parent message's event_id from DB
+        # For now, we queue the thread_reply and let worker handle context
+        pass
+    
+    eid = push_event("slack", event_type, raw_json, parent_event_id=parent_event_id)
+    logger.info("Queued Slack %s from channel %s (event_id=%d, thread=%s)", 
+                event_type, event.get("channel"), eid, thread_ts or "none")
 
 
 def run_slack_connector() -> None:

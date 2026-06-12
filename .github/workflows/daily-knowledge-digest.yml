@@ -5,12 +5,19 @@ on:
     - cron: '0 2 * * *'   # 02:00 UTC = 10:00 Asia/Shanghai (UTC+8)
   workflow_dispatch:        # manual trigger from GitHub UI → Actions tab
 
+concurrency:
+  group: daily-digest
+  cancel-in-progress: false
+
 jobs:
   digest:
     runs-on: self-hosted    # your Mac with access to local knowledge_base
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       TZ: Asia/Shanghai
+      VIRTUAL_ENV: ""
+      UV_PROJECT_ENVIRONMENT: .venv
+      KNOWLEDGE_BASE_PATH: ${{ vars.KNOWLEDGE_BASE_PATH }}
 
     steps:
       - name: Checkout repo
@@ -18,8 +25,42 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Late startup detection & compensation
+        run: |
+          echo "=== Digest Startup Check (Shanghai Time) ==="
+          echo "Current time: $(date '+%Y-%m-%d %H:%M:%S %Z')"
+          echo "Last digest commit:"
+          git log --grep="daily knowledge digest" --oneline -1 || echo "  (none in history)"
+          echo ""
+          echo "If runner was offline at 10:00 Shanghai, manually trigger via GitHub UI → Actions → Run workflow"
+
       - name: Verify environment
         run: uv run python test_env.py || true   # warn but never fail the job
+
+      - name: Normalize runner environment
+        run: |
+          echo "Workspace: $GITHUB_WORKSPACE"
+          echo "VIRTUAL_ENV='${VIRTUAL_ENV}' (forced empty)"
+          echo "UV_PROJECT_ENVIRONMENT='${UV_PROJECT_ENVIRONMENT}'"
+          if [ -z "${KNOWLEDGE_BASE_PATH}" ]; then
+            if [ -d "$GITHUB_WORKSPACE/wiki" ]; then
+              echo "KNOWLEDGE_BASE_PATH=$GITHUB_WORKSPACE/wiki" >> "$GITHUB_ENV"
+              echo "KNOWLEDGE_BASE_PATH was empty; fallback to $GITHUB_WORKSPACE/wiki"
+            else
+              echo "KNOWLEDGE_BASE_PATH is empty and fallback folder does not exist"
+              exit 1
+            fi
+          else
+            echo "KNOWLEDGE_BASE_PATH provided by repo variable"
+          fi
+
+      - name: Validate knowledge base path
+        run: |
+          echo "Resolved KNOWLEDGE_BASE_PATH=${KNOWLEDGE_BASE_PATH}"
+          if [ ! -d "${KNOWLEDGE_BASE_PATH}" ]; then
+            echo "KNOWLEDGE_BASE_PATH does not exist: ${KNOWLEDGE_BASE_PATH}"
+            exit 1
+          fi
 
       - name: Initialise database
         run: uv run python scripts/resource_mgr.py init
@@ -27,32 +68,26 @@ jobs:
       - name: Scan knowledge_base for new / changed notes
         run: uv run python scripts/ingest/knowledge_base_scanner.py --once
 
-      - name: Show pending events
+      - name: Show pending events before ETL
         run: uv run python scripts/resource_mgr.py status
 
       - name: Distill notes into wiki pages
         env:
-          # Force cloud for CREATE_PAGE even if LM Studio is reachable,
-          # so new pages get high-quality synthesis. CLASSIFY/SUMMARIZE/APPEND
-          # still probe local first (AUTO backend).
           USE_CLOUD_LLM: "true"
+          PIPELINE_MODE: "etl"
+          WIKI_WRITE_TARGET: "etl"
         run: |
-          uv run python -c "
-          from scripts.db import init_db, get_pending_events
-          from scripts.distill.worker import process_event
-          init_db()
-          events = get_pending_events(limit=200)
-          print(f'Processing {len(events)} pending events')
-          for e in events:
-              process_event(e)
-          print('Done')
-          "
+          uv run python scripts/resource_mgr.py etl-run all --apply --limit 200
+      
+      - name: Hardening Retention (Archive & Purge Staging Rows)
+        run: |
+          uv run python scripts/resource_mgr.py etl-archive --hours 24 --apply
 
       - name: Commit and push wiki updates
         run: |
           git config user.email "pulse-wiki[bot]@users.noreply.github.com"
           git config user.name "PulseWiki Bot"
-          git add wiki/
+          git add wiki_content/
           git diff --staged --quiet \
             && echo "No wiki changes today." \
             || (git commit -m "docs: daily knowledge digest $(date +%Y-%m-%d)" && git push)

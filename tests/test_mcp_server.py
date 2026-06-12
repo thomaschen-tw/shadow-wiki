@@ -5,7 +5,7 @@ import pytest
 def test_search_wiki_returns_results(tmp_db):
     from scripts.db import init_db, update_fts, upsert_module
     init_db()
-    upsert_module("auth/session", "wiki/auth/session.md", "Session handling")
+    upsert_module("auth/session", "wiki_content/legacy/auth/session.md", "Session handling")
     update_fts("auth/session", "This module handles Redis session token refresh")
 
     from scripts.mcp_server import search_wiki
